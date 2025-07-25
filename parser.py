@@ -1,13 +1,7 @@
 from abstract_syntax_tree import * 
 from lexer import *
 
-TEST_SQL="""
-CREATE TABLE users (
-  id INT NOT NULL,
-  name VARCHAR(64),
-  PRIMARY KEY(id)
-);
-"""
+
 
 
 
@@ -56,7 +50,10 @@ class Parser:
         self.tokens.pop(0)
 
         while (self.not_eof() and self.tokens[0].type != TokenType.RIGHT_PAREN):
-            self.tokens.pop(0)
+            column = self.parse_column_def()
+            create_stmt.columns.append(column)
+            if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ',':
+                self.tokens.pop(0)
 
         if self.tokens[0].type != TokenType.RIGHT_PAREN:
             raise Exception("Expected closing parenthesis")
@@ -65,3 +62,31 @@ class Parser:
         if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ';':
             self.tokens.pop(0)
         return create_stmt
+    
+    def parse_column_def(self) -> ColumnDef:
+        column = ColumnDef()
+
+        if self.tokens[0].type != TokenType.IDENTIFIER:
+            raise Exception("Expected column name")
+        column.name = self.tokens[0].value
+        self.tokens.pop(0)
+
+        if self.tokens[0].type != TokenType.DATATYPE:
+            print(self.tokens[0].value)
+            raise Exception("Expected datatype")
+        column.datatype = self.tokens[0].value
+        self.tokens.pop(0)
+
+        if column.datatype == "VARCHAR" and self.tokens[0].type == TokenType.LEFT_PAREN:
+            self.tokens.pop(0)
+            if self.tokens[0].type != TokenType.INTEGER:
+                raise Exception("Expected integer for VARCHAR length")
+            column.datatype += f'({self.tokens[0].value})'
+            self.tokens.pop(0)
+            if self.tokens[0].type != TokenType.RIGHT_PAREN:
+                raise Exception("Expected closing parenthesis after VARCHAR length")
+            self.tokens.pop(0)
+
+        
+        return column
+

@@ -13,7 +13,8 @@ KEYWORDS = [
     'INSERT',
     'UPDATE',
     'PRIMARY',
-    'KEY'
+    'KEY',
+    'LITERAL'
 ]
 
 DATATYPE = [

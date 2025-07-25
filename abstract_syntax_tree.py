@@ -1,59 +1,63 @@
 from enum import Enum
 from pydantic.dataclasses import dataclass
-from typing import List, Optional
-from dataclasses import field
+from typing import Annotated, Union, List, Literal
+from pydantic_core import to_json
+from pydantic import TypeAdapter
+from pydantic import BaseModel, Field
 
 
-NodeType = Enum(
-    'NodeType',
-    [
-        'SCHEMA',
-        'CREATE_TABLE',
-        'ALTER_TABLE',
-        'INSERT',
-        'TABLE',
-        'COLUMN_DEF',
-        'DATATYPE',
-        'CONSTRAINT',
-        'IDENTIFIER',
-        'LITERAL'
-    ]
-)
+class NodeType(str, Enum):
+    SCHEMA = "schema"
+    CREATE_TABLE = "create_table"
+    ALTER_TABLE = "alter_table"
+    INSERT = "insert"
+    TABLE = "table"
+    COLUMN_DEF = "column_def"
+    DATATYPE = "datatype"
+    CONSTRAINT = "constraint"
+    IDENTIFIER = "identifier"
+    LITERAL = "literal"
 
 
-@dataclass
-class Node:
+
+class Node(BaseModel):
     type: NodeType
 
-@dataclass
-class Schema(Node):
-    type: NodeType = NodeType.SCHEMA
-    body: list[Node] = field(default_factory=list)
-@dataclass
 class Table(Node):
-    type: NodeType = NodeType.TABLE
+    type: Literal[NodeType.TABLE] = NodeType.TABLE
     name: str = ""
 
-    def __str__(self) -> str:
-        return self.name
 
-@dataclass
 class ColumnDef(Node):
-    type: NodeType = NodeType.COLUMN_DEF
+    type: Literal[NodeType.COLUMN_DEF] = NodeType.COLUMN_DEF
     name: str = ""
     datatype: str = ""
-    constraints: list[str] = None
+    constraints: List[str] = Field(default_factory=list)
 
-@dataclass
+
 class CreateTable(Node):
-    type: NodeType = NodeType.CREATE_TABLE
+    type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
     table: Table = None
-    columns: list[ColumnDef] = field(default_factory=list)
+    columns: List[ColumnDef] = Field(default_factory=list)
+
+
+BodyItem = Annotated[
+    Union[CreateTable, Table, ColumnDef], 
+    Field(discriminator="type")
+]
+
+
+class Schema(Node):
+    type: Literal[NodeType.SCHEMA] = NodeType.SCHEMA
+    body: List[BodyItem] = Field(default_factory=list)
 
     def __str__(self) -> str:
-        return f'CreateTable: {self.table.name}'
+        return self.model_dump_json(indent=1)
+    
+    def __repr__(self) -> str:
+        return self.__str__()
+    
 
-@dataclass
-class Literal(Node):
-    type: NodeType = NodeType.LITERAL
-    value: str = None
+# class Literal(Node):
+#     type: NodeType = NodeType.LITERAL
+#     value: str = None
