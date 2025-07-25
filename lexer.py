@@ -9,19 +9,6 @@ CREATE TABLE users (
 );
 """
 
-TokenType = Enum(
-    'TokenType',
-    [
-        'KEYWORD',
-        'IDENTIFIER',
-        'DATATYPE',
-        'LEFT_PAREN',
-        'RIGHT_PAREN',
-        'INTEGER',
-        'DELIMITER',
-        'UKNOWN'
-    ]
-)
 
 KEYWORDS = [
     'CREATE',
@@ -36,9 +23,24 @@ KEYWORDS = [
 ]
 
 DATATYPE = [
-    'INT'
+    'INT',
     'VARCHAR'
 ]
+
+TokenType = Enum(
+    'TokenType',
+    [
+        'KEYWORD',
+        'IDENTIFIER',
+        'DATATYPE',
+        'LEFT_PAREN',
+        'RIGHT_PAREN',
+        'INTEGER',
+        'DELIMITER',
+        'UKNOWN'
+    ]
+)
+
 
 @dataclass
 class Token:
@@ -61,9 +63,9 @@ def isskippable(src:str) -> bool:
     return src == ' ' or src == '\n' or src == '\t'
 
 def create_token_from_string(string: str)->Token:
-    if (str in KEYWORDS):
+    if (string in KEYWORDS):
         return Token(value=string, type=TokenType.KEYWORD)
-    elif (str in DATATYPE):
+    elif (string in DATATYPE):
         return Token(value=string, type=TokenType.DATATYPE)
     else:
         return Token(value=string, type=TokenType.IDENTIFIER)
