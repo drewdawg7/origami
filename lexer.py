@@ -37,6 +37,7 @@ TokenType = Enum(
         'RIGHT_PAREN',
         'INTEGER',
         'DELIMITER',
+        'EOF',
         'UKNOWN'
     ]
 )
@@ -104,6 +105,7 @@ def tokenize(sourceCode: str) -> list[Token]:
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
         
         tokens.append(token)
+    tokens.append(Token(value='End of File', type=TokenType.EOF))
     return tokens
 
 
