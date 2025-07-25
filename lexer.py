@@ -1,13 +1,7 @@
 from enum import Enum, IntEnum
 from pydantic.dataclasses import dataclass
 
-TEST_SQL="""
-CREATE TABLE users (
-  id INT NOT NULL,
-  name VARCHAR(64),
-  PRIMARY KEY(id)
-);
-"""
+
 
 
 KEYWORDS = [
@@ -109,5 +103,4 @@ def tokenize(sourceCode: str) -> list[Token]:
     return tokens
 
 
-val = tokenize(TEST_SQL)
-print(val)
+
