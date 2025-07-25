@@ -1,0 +1,109 @@
+from enum import Enum, IntEnum
+from pydantic.dataclasses import dataclass
+
+TEST_SQL="""
+CREATE TABLE users (
+  id INT NOT NULL,
+  name VARCHAR(64),
+  PRIMARY KEY(id)
+);
+"""
+
+TokenType = Enum(
+    'TokenType',
+    [
+        'KEYWORD',
+        'IDENTIFIER',
+        'DATATYPE',
+        'LEFT_PAREN',
+        'RIGHT_PAREN',
+        'INTEGER',
+        'DELIMITER',
+        'UKNOWN'
+    ]
+)
+
+KEYWORDS = [
+    'CREATE',
+    'TABLE',
+    'DROP',
+    'COLUMN',
+    'ADD',
+    'INSERT',
+    'UPDATE',
+    'PRIMARY',
+    'KEY'
+]
+
+DATATYPE = [
+    'INT'
+    'VARCHAR'
+]
+
+@dataclass
+class Token:
+    value: str
+    type:  TokenType
+
+    def __str__(self) -> str:
+        return f"\nvalue: \"{self.value}\" type: {self.type.name}"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
+
+def isalpha(src:str) -> bool:
+    return src.isalpha()
+
+def isint(src:str) -> bool:
+    return src.isdigit()
+
+def isskippable(src:str) -> bool:
+    return src == ' ' or src == '\n' or src == '\t'
+
+def create_token_from_string(string: str)->Token:
+    if (str in KEYWORDS):
+        return Token(value=string, type=TokenType.KEYWORD)
+    elif (str in DATATYPE):
+        return Token(value=string, type=TokenType.DATATYPE)
+    else:
+        return Token(value=string, type=TokenType.IDENTIFIER)
+
+def tokenize(sourceCode: str) -> list[Token]:
+    tokens:list[Token] = []
+    src = list(sourceCode)
+    
+    while (len(src) > 0):
+        token = None
+        if (isskippable(src[0])):
+            src.pop(0)
+            continue
+        elif (src[0] == '('):
+            token = Token(value=src.pop(0), type=TokenType.LEFT_PAREN)
+        elif (src[0] == ')'):
+            token = Token(value=src.pop(0), type=TokenType.RIGHT_PAREN)
+        elif (src[0] == ','):
+            token = Token(value=src.pop(0), type=TokenType.DELIMITER)
+        elif (src[0] == ';'):
+            token = Token(value=src.pop(0), type=TokenType.DELIMITER)
+        else: 
+            if(isint(src[0])):
+                num = ""
+                while (len(src)> 0 and isint(src[0])):
+                    num += src.pop(0)                
+                token = Token(value=num, type=TokenType.INTEGER)
+                num = ""
+            elif (isalpha(src[0])):
+                string = ""
+                while (len(src) > 0 and isalpha(src[0]) and src[0] != " "):
+                    string += src.pop(0)
+                token = create_token_from_string(string)
+
+        if (token == None):
+            token = Token(value=src.pop(0), type=TokenType.UKNOWN)
+        
+        tokens.append(token)
+    return tokens
+
+
+val = tokenize(TEST_SQL)
+print(val)
