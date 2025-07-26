@@ -8,7 +8,8 @@ CREATE TABLE users (
 );
 
 ALTER TABLE users
-ADD COLUMN email VARCHAR(64);
+ADD COLUMN email VARCHAR(64) NOT NULL,
+ADD COLUMN age INT;
 """
 
 prs = Parser()

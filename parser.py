@@ -116,21 +116,40 @@ class Parser:
             raise Exception("Expected table name")
         table_name = self.curr_value()
         self.next()  # Skip table name
-
         table = Table(name=table_name)
         alter_stmt = AlterTable(table=table)
+        alter_stmt.operations = []
 
-        if self.is_keyword() and self.curr_value() == 'ADD':
-            self.next()  # Skip ADD
-            if self.is_keyword() and self.curr_value() == 'COLUMN':
-                self.next()  # Skip COLUMN
-            column = self.parse_column_def()
-            alter_stmt.column = column
-            alter_stmt.action = "ADD"
+        while self.not_eof() and not self.is_semicolon():
+            if self.is_keyword():
+                if self.curr_value() == 'ADD':
+                    self.next()
+                    if self.is_keyword() and self.curr_value() == 'COLUMN':
+                        self.next()
+                    column = self.parse_column_def()
+                    operation = AlterOperation(action="ADD", column=column)
+                    alter_stmt.operations.append(operation)
 
+                elif self.curr_value() == 'DROP':
+                    self.next()
+                    if self.is_keyword() and self.curr_value() == 'COLUMN':
+                        self.next()
+                    if not self.is_identifier():
+                        raise Exception("Expecteed column name after DROP COLUMN")
+                    column_name = self.curr_value()
+                    column = ColumnDef(name=column_name)
+                    operation = AlterOperation(action="DROP", column=column)
+                    alter_stmt.operations.append(operation)
+                else:
+                    self.next()
+            if self.is_comma():
+                self.next()
+            elif not self.is_semicolon():
+                raise Exception("Expected comma or semicolon after alter operation")
+            
         if self.is_semicolon():
-            self.next()  # Skip semicolon
-    
+            self.next()
+
         return alter_stmt
 
 

@@ -16,6 +16,7 @@ class NodeType(str, Enum):
     DATATYPE = "datatype"
     CONSTRAINT = "constraint"
     IDENTIFIER = "identifier"
+    ALTER_OPERATION = "alter_operation",
     LITERAL = "literal"
 
 
@@ -40,12 +41,15 @@ class CreateTable(Node):
     table: Table = None
     columns: List[ColumnDef] = Field(default_factory=list)
 
+class AlterOperation(Node):
+    type: Literal[NodeType.ALTER_OPERATION] = NodeType.ALTER_OPERATION
+    action: str
+    column: ColumnDef
 
 class AlterTable(Node):
     type: Literal[NodeType.ALTER_TABLE] = NodeType.ALTER_TABLE
     table: Table = None
-    column: ColumnDef = None
-    action: str = ""
+    operations: List[AlterOperation] = Field(default_factory=list)
 
 
 BodyItem = Annotated[
