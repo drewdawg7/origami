@@ -15,7 +15,9 @@ class Parser:
         self.tokens = tokenize(sourceCode)
 
         while (self.not_eof()): 
-            schema.body.append(self.parse_node())
+            node = self.parse_node()
+            if node != None:
+                schema.body.append(node)
 
         return schema
 
@@ -23,44 +25,49 @@ class Parser:
         return self.tokens[0].type != TokenType.EOF
     
     def parse_node(self) -> Node:
-        if self.tokens[0].type == TokenType.KEYWORD and self.tokens[0].value == 'CREATE':
-            return self.parse_create_statement()
-        self.tokens.pop(0)
+        if self.is_keyword():
+            if self.curr_value() == 'CREATE':
+                return self.parse_create_statement()
+            elif self.curr_value() == 'ALTER':
+                return self.parse_alter_statement()
+         
+        
+        self.next()
         return None
     
     def parse_create_statement(self) -> Node:
         # If we're here we already know this is a CREATE token
-        self.tokens.pop(0)
+        self.next()
 
         if self.tokens[0].type != TokenType.KEYWORD or self.tokens[0].value != 'TABLE':
             raise Exception("Expected TABLE keyword after CREATE")
-        self.tokens.pop(0)
+        self.next()
 
         if self.tokens[0].type != TokenType.IDENTIFIER:
             raise Exception("Expected table name")
         
         table_name = self.tokens[0].value
-        self.tokens.pop(0)
+        self.next()
         table = Table(name=table_name)
 
         create_stmt = CreateTable(table=table)
 
         if self.tokens[0].type != TokenType.LEFT_PAREN:
             raise Exception("Expected opening parenthesis after table name")
-        self.tokens.pop(0)
+        self.next()
 
         while (self.not_eof() and self.tokens[0].type != TokenType.RIGHT_PAREN):
             column = self.parse_column_def()
             create_stmt.columns.append(column)
             if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ',':
-                self.tokens.pop(0)
+                self.next()
 
         if self.tokens[0].type != TokenType.RIGHT_PAREN:
             raise Exception("Expected closing parenthesis")
         
-        self.tokens.pop(0)
+        self.next()
         if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ';':
-            self.tokens.pop(0)
+            self.next()
         return create_stmt
     
     def parse_column_def(self) -> ColumnDef:
@@ -69,24 +76,83 @@ class Parser:
         if self.tokens[0].type != TokenType.IDENTIFIER:
             raise Exception("Expected column name")
         column.name = self.tokens[0].value
-        self.tokens.pop(0)
+        self.next()
 
         if self.tokens[0].type != TokenType.DATATYPE:
             print(self.tokens[0].value)
             raise Exception("Expected datatype")
         column.datatype = self.tokens[0].value
-        self.tokens.pop(0)
+        self.next()
 
         if column.datatype == "VARCHAR" and self.tokens[0].type == TokenType.LEFT_PAREN:
-            self.tokens.pop(0)
+            self.next()
             if self.tokens[0].type != TokenType.INTEGER:
                 raise Exception("Expected integer for VARCHAR length")
             column.datatype += f'({self.tokens[0].value})'
-            self.tokens.pop(0)
+            self.next()
             if self.tokens[0].type != TokenType.RIGHT_PAREN:
                 raise Exception("Expected closing parenthesis after VARCHAR length")
-            self.tokens.pop(0)
+            self.next()
 
-        
+        while (self.not_eof() and self.tokens[0].type != TokenType.DELIMITER and self.tokens[0].type != TokenType.RIGHT_PAREN):
+            if self.tokens[0].type == TokenType.KEYWORD and self.tokens[0].value == "NOT":
+                self.next()
+                if self.tokens[0].type == TokenType.KEYWORD and self.tokens[0].value == "NULL":
+                    column.constraints.append("NOT NULL")
+                    self.next()
+                else:
+                    raise Exception("Expected NULL after NOT")
+
         return column
+    
+    def parse_alter_statement(self) -> Node:
+        print("TESTTESTTEST")
+        # Current node is ALTER so pop
+        self.next()
+
+        if not self.is_keyword() or self.curr_value() != 'TABLE':
+            raise Exception("Expected TABLE keyword after ALTER")
+        self.next()  # Skip TABLE
+
+        if not self.is_identifier():
+            raise Exception("Expected table name")
+        table_name = self.curr_value()
+        self.next()  # Skip table name
+
+        table = Table(name=table_name)
+        alter_stmt = AlterTable(table=table)
+
+        if self.is_keyword() and self.curr_value() == 'ADD':
+            self.next()  # Skip ADD
+            if self.is_keyword() and self.curr_value() == 'COLUMN':
+                self.next()  # Skip COLUMN
+            column = self.parse_column_def()
+            alter_stmt.column = column
+            alter_stmt.action = "ADD"
+
+        if self.is_semicolon():
+            self.next()  # Skip semicolon
+    
+        return alter_stmt
+
+
+
+
+    def is_keyword(self) -> bool:
+        return self.curr_type() == TokenType.KEYWORD
+    
+    def is_identifier(self) -> bool:
+        return self.curr_type() == TokenType.IDENTIFIER
+    
+    def is_semicolon(self) -> bool:
+        return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ';'
+    
+    def curr_value(self) -> str:
+        return self.tokens[0].value
+    
+    def curr_type(self) -> TokenType:
+        return self.tokens[0].type
+
+    def next(self) -> Token:
+        return self.tokens.pop(0)
 

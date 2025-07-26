@@ -7,6 +7,7 @@ from pydantic.dataclasses import dataclass
 KEYWORDS = [
     'CREATE',
     'TABLE',
+    'ALTER',
     'DROP',
     'COLUMN',
     'ADD',
@@ -14,7 +15,9 @@ KEYWORDS = [
     'UPDATE',
     'PRIMARY',
     'KEY',
-    'LITERAL'
+    'LITERAL',
+    'NOT',
+    'NULL'
 ]
 
 DATATYPE = [
@@ -98,7 +101,7 @@ def tokenize(sourceCode: str) -> list[Token]:
 
         if (token == None):
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
-        
+        print(f'Token: {token}')
         tokens.append(token)
     tokens.append(Token(value='End of File', type=TokenType.EOF))
     return tokens

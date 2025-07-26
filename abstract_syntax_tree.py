@@ -41,8 +41,15 @@ class CreateTable(Node):
     columns: List[ColumnDef] = Field(default_factory=list)
 
 
+class AlterTable(Node):
+    type: Literal[NodeType.ALTER_TABLE] = NodeType.ALTER_TABLE
+    table: Table = None
+    column: ColumnDef = None
+    action: str = ""
+
+
 BodyItem = Annotated[
-    Union[CreateTable, Table, ColumnDef], 
+    Union[CreateTable, Table, ColumnDef, AlterTable], 
     Field(discriminator="type")
 ]
 
