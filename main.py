@@ -7,6 +7,11 @@ CREATE TABLE users (
   name VARCHAR(64),
 );
 
+CREATE TABLE position (
+  id INT PRIMARY KEY NOT NULL,
+  title VARCHAR(64)
+)
+
 ALTER TABLE users
 ADD COLUMN email VARCHAR(64) NOT NULL,
 ADD COLUMN age INT;
@@ -21,4 +26,4 @@ print(val)
 # Add the folding functionality
 folded_ast = val.fold_alter_statements()
 print("\nFolded AST:")
-print(folded_ast.body[0].sql())
+print(folded_ast.sql())

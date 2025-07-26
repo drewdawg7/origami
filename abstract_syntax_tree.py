@@ -123,6 +123,22 @@ class Schema(Node):
     def __repr__(self) -> str:
         return self.__str__()
     
+    def sql(self) -> str:
+        sql_statements = []
+        
+        for item in self.body:
+            if hasattr(item, 'sql') and callable(getattr(item, 'sql')):
+                sql_statements.append(item.sql())
+            # Handle items that don't have sql method
+            elif item.type == NodeType.ALTER_TABLE:
+                for op in item.operations:
+                    if op.action == "ADD":
+                        table_name = item.table.name
+                        column_sql = op.column.sql()
+                        sql_statements.append(f"ALTER TABLE {table_name} ADD COLUMN {column_sql};")
+        
+        return "\n\n".join(sql_statements)
+    
 
 # class Literal(Node):
 #     type: NodeType = NodeType.LITERAL
