@@ -1,4 +1,5 @@
 from parser import Parser
+from lexer import tokenize
 
 
 TEST_SQL="""
@@ -18,14 +19,34 @@ ADD COLUMN email VARCHAR(64) NOT NULL,
 ADD COLUMN age INT,
 DROP COLUMN uselesscol;
 """
-print(f'Parsing: \n{TEST_SQL}\ninto\n')
-prs = Parser()
 
-val = prs.produce_ast(TEST_SQL)
-print("Original SQL:")
-print(val.sql())
+TEST_SQL2="""
+INSERT INTO users (id, name)
+VALUES (1, 'Drew');
+"""
 
-# Add the folding functionality
-folded_ast = val.fold_alter_statements()
-print("\nFolded SQL:")
-print(folded_ast.sql())
+
+def print_tokens():
+  tokens = tokenize(TEST_SQL2)
+  print(tokens)
+
+
+def print_ast():
+
+  prs = Parser()
+
+  val = prs.produce_ast(TEST_SQL2)
+  print(f'Parsing: \n{TEST_SQL}\ninto\n')
+  print("===============================")
+  print(val)
+
+
+  # Add the folding functionality
+  # folded_ast = val.fold_alter_statements()
+  # print("\nFolded SQL:")
+  # print(folded_ast.sql())
+
+
+
+print_tokens()
+print_ast()

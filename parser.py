@@ -30,11 +30,73 @@ class Parser:
                 return self.parse_create_statement()
             elif self.curr_value() == 'ALTER':
                 return self.parse_alter_statement()
+            elif self.curr_value() == 'INSERT':
+                return self.parse_insert_statement()
          
         
         self.next()
         return None
     
+    def parse_insert_statement(self) -> Node:
+        columns = []
+        values = []
+        self.next()
+        if not self.is_keyword() and self.curr_value() != 'INTO':
+            raise Exception("Expected INTO after INSERT")
+        self.next()
+        if not self.is_identifier():
+            raise Exception("Expected table name after INSERT INTO")
+        table_name = self.curr_value()
+        self.next()
+        if not self.is_left_paren():
+            raise Exception("Expected opening parenthesis after table name")
+        self.next()
+        while self.curr_type() == TokenType.IDENTIFIER or self.is_comma():
+            print(f'Token in Column Loop: {self.curr_token()}')
+            if self.is_comma():
+                self.next()
+            elif self.curr_type() == TokenType.IDENTIFIER:
+                columns.append(self.curr_value())
+                self.next()
+            else:
+                raise Exception(f'Found unexpected token while parsing INSERT statemnt: {self.curr_token()}') 
+        if (not self.is_right_paren()):
+            raise Exception(f'Expected closing parenthesis after columns in INSERT: {self.curr_token()}')
+        self.next()
+        if (self.curr_type() != TokenType.KEYWORD and self.curr_value() != 'VALUES'):
+            raise Exception(f'Expected VALUES after columns while parsing INSERT: {self.curr_token()}')
+        self.next()
+        if (not self.is_left_paren()):
+            raise Exception(f'Expected opening parenthesis after VALUES')
+        self.next()
+        # print(f'Token before Value Loop: {self.curr_token()}')
+        while self.curr_type() == TokenType.LITERAL or self.is_comma():
+            # print(f'Token in Value Loop: {self.curr_token()}')
+            if self.is_comma():
+                self.next()
+            elif self.curr_type() == TokenType.LITERAL:
+                values.append(self.curr_value())
+                self.next()
+            else:
+                raise Exception(f'Found unexpected token while parsing INSERT statement: {self.curr_token()}')
+            
+        if (not self.is_right_paren()):
+            raise Exception(f'Expected closing parenthesis after values in INSERT: {self.curr_token()}')
+        self.next()
+        if (not self.is_semicolon()):
+            raise Exception(f'Expected semicolon after closing parenthesis')
+        
+        if (len(columns) != len(values)):
+            raise Exception(f'Columns and values have a mismatched length')
+        value_literals = []
+        for val in values:
+            value_literals.append(ValueLiteral(value=val))
+        insert_stmt = Insert(table_name=table_name, columns=columns, values=[value_literals])
+        return insert_stmt
+                 
+        
+        
+
     def parse_create_statement(self) -> Node:
         # If we're here we already know this is a CREATE token
         self.next()
@@ -191,6 +253,8 @@ class Parser:
     def curr_type(self) -> TokenType:
         return self.tokens[0].type
         
+    def curr_token(self) -> Token:
+        return self.tokens[0]
 
     def next(self) -> Token:
         return self.tokens.pop(0)

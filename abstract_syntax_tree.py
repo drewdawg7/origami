@@ -28,6 +28,10 @@ class Table(Node):
     type: Literal[NodeType.TABLE] = NodeType.TABLE
     name: str = ""
 
+class ValueLiteral(Node):
+    type: Literal[NodeType.LITERAL] = NodeType.LITERAL
+    value: str
+
 
 class ColumnDef(Node):
     type: Literal[NodeType.COLUMN_DEF] = NodeType.COLUMN_DEF
@@ -40,6 +44,14 @@ class ColumnDef(Node):
         if constraint_str:
             return f'{self.name} {self.datatype} {constraint_str}'
         return f'{self.name} {self.datatype}'
+
+
+class Insert(Node):
+    type: Literal[NodeType.INSERT] = NodeType.INSERT
+    table_name: str = ""
+    columns: List[str] = Field(default_factory=list)
+    values: List[List[ValueLiteral]] = Field(default_factory=list)
+
 
 
 class CreateTable(Node):

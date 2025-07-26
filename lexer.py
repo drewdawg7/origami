@@ -8,16 +8,19 @@ KEYWORDS = [
     'CREATE',
     'TABLE',
     'ALTER',
+    'ADD',
     'DROP',
     'COLUMN',
-    'ADD',
     'INSERT',
+    'INTO',
     'UPDATE',
     'PRIMARY',
     'KEY',
     'LITERAL',
     'NOT',
     'NULL'
+    'INTO',
+    'VALUES'
 ]
 
 DATATYPE = [
@@ -33,7 +36,7 @@ TokenType = Enum(
         'DATATYPE',
         'LEFT_PAREN',
         'RIGHT_PAREN',
-        'INTEGER',
+        'LITERAL',
         'DELIMITER',
         'EOF',
         'UKNOWN'
@@ -86,18 +89,44 @@ def tokenize(sourceCode: str) -> list[Token]:
             token = Token(value=src.pop(0), type=TokenType.DELIMITER)
         elif (src[0] == ';'):
             token = Token(value=src.pop(0), type=TokenType.DELIMITER)
-        else: 
-            if(isint(src[0])):
-                num = ""
-                while (len(src)> 0 and isint(src[0])):
-                    num += src.pop(0)                
-                token = Token(value=num, type=TokenType.INTEGER)
-                num = ""
-            elif (isalpha(src[0])):
-                string = ""
-                while (len(src) > 0 and isalpha(src[0]) and src[0] != " "):
-                    string += src.pop(0)
-                token = create_token_from_string(string)
+        else:
+            if (src[0] == "'" or src[0] == '"'):
+                quote_char = src.pop(0)
+                string_value = ""
+                while (len(src) > 0 and src[0] != quote_char):
+                    string_value += src.pop(0)
+
+                if len(src) > 0 and src[0] == quote_char:
+                    src.pop(0)
+                    token = Token(value=string_value, type=TokenType.LITERAL)
+                else:
+                    raise Exception("Expected closing quote")
+            else: 
+                if (isint(src[0])):
+                    num = ""
+                    while (len(src) > 0 and isint(src[0])):
+                        num += src.pop(0)
+                    token = Token(value=num, type=TokenType.LITERAL)
+                    num = ""
+                elif (isalpha(src[0])):
+                    string = ""
+                    while (len(src) > 0 and isalpha(src[0]) and src[0] != " "):
+                        string += src.pop(0)
+                        token = create_token_from_string(string)
+                else:
+                    raise Exception("Unexpected non-digit, non-alpha char encountered")
+        # else: 
+        #     if(isint(src[0])):
+        #         num = ""
+        #         while (len(src)> 0 and isint(src[0])):
+        #             num += src.pop(0)                
+        #         token = Token(value=num, type=TokenType.LITERAL)
+        #         num = ""
+        #     elif (isalpha(src[0])):
+        #         string = ""
+        #         while (len(src) > 0 and isalpha(src[0]) and src[0] != " "):
+        #             string += src.pop(0)
+        #         token = create_token_from_string(string)
 
         if (token == None):
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
