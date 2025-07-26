@@ -1,9 +1,9 @@
-from parser import *
+from parser import Parser
 
 
 TEST_SQL="""
 CREATE TABLE users (
-  id INT NOT NULL,
+  id INT PRIMARY KEY NOT NULL,
   name VARCHAR(64),
 );
 

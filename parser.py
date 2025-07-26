@@ -101,6 +101,13 @@ class Parser:
                     self.next()
                 else:
                     raise Exception("Expected NULL after NOT")
+            if self.is_keyword() and self.curr_value() == "PRIMARY":
+                self.next()
+                if self.is_keyword() and self.curr_value() == "KEY":
+                    column.constraints.append("PRIMARY KEY")
+                    self.next()
+                else:
+                    raise Exception("Expected KEY after Primary")
 
         return column
     
