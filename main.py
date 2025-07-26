@@ -21,4 +21,4 @@ print(val)
 # Add the folding functionality
 folded_ast = val.fold_alter_statements()
 print("\nFolded AST:")
-print(folded_ast)
+print(folded_ast.body[0].sql())

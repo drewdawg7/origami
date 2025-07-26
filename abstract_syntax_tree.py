@@ -35,11 +35,23 @@ class ColumnDef(Node):
     datatype: str = ""
     constraints: List[str] = Field(default_factory=list)
 
+    def sql(self) -> str:
+        constraint_str = " ".join(self.constraints)
+        if constraint_str:
+            return f'{self.name} {self.datatype} {constraint_str}'
+        return f'{self.name} {self.datatype}'
+
 
 class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
     table: Table = None
     columns: List[ColumnDef] = Field(default_factory=list)
+
+    def sql(self) -> str:
+        sql = f'CREATE TABLE {self.table.name} (\n'
+        column_str = ",\n".join([' ' + col.sql() for col in self.columns])
+        sql += column_str + "\n);"
+        return sql
 
 class AlterOperation(Node):
     type: Literal[NodeType.ALTER_OPERATION] = NodeType.ALTER_OPERATION
