@@ -39,65 +39,64 @@ class Parser:
         # If we're here we already know this is a CREATE token
         self.next()
 
-        if self.tokens[0].type != TokenType.KEYWORD or self.tokens[0].value != 'TABLE':
+        if not self.is_keyword() and self.curr_value() != 'TABLE':
             raise Exception("Expected TABLE keyword after CREATE")
         self.next()
 
-        if self.tokens[0].type != TokenType.IDENTIFIER:
+        if not self.is_identifier():
             raise Exception("Expected table name")
         
-        table_name = self.tokens[0].value
+        table_name = self.curr_value()
         self.next()
         table = Table(name=table_name)
 
         create_stmt = CreateTable(table=table)
 
-        if self.tokens[0].type != TokenType.LEFT_PAREN:
+        if not self.is_left_paren():
             raise Exception("Expected opening parenthesis after table name")
         self.next()
 
-        while (self.not_eof() and self.tokens[0].type != TokenType.RIGHT_PAREN):
+        while (self.not_eof() and not self.is_right_paren()):
             column = self.parse_column_def()
             create_stmt.columns.append(column)
-            if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ',':
+            if self.is_comma():
                 self.next()
 
-        if self.tokens[0].type != TokenType.RIGHT_PAREN:
+        if not self.is_right_paren():
             raise Exception("Expected closing parenthesis")
         
         self.next()
-        if self.tokens[0].type == TokenType.DELIMITER and self.tokens[0].value == ';':
+        if self.is_semicolon():
             self.next()
         return create_stmt
     
     def parse_column_def(self) -> ColumnDef:
         column = ColumnDef()
 
-        if self.tokens[0].type != TokenType.IDENTIFIER:
+        if self.curr_type() != TokenType.IDENTIFIER:
             raise Exception("Expected column name")
         column.name = self.tokens[0].value
         self.next()
 
-        if self.tokens[0].type != TokenType.DATATYPE:
-            print(self.tokens[0].value)
+        if self.curr_type() != TokenType.DATATYPE:
             raise Exception("Expected datatype")
-        column.datatype = self.tokens[0].value
+        column.datatype = self.curr_value()
         self.next()
 
-        if column.datatype == "VARCHAR" and self.tokens[0].type == TokenType.LEFT_PAREN:
+        if column.datatype == "VARCHAR" and self.is_left_paren():
             self.next()
-            if self.tokens[0].type != TokenType.INTEGER:
+            if self.curr_type() != TokenType.INTEGER:
                 raise Exception("Expected integer for VARCHAR length")
             column.datatype += f'({self.tokens[0].value})'
             self.next()
-            if self.tokens[0].type != TokenType.RIGHT_PAREN:
+            if not self.is_right_paren():
                 raise Exception("Expected closing parenthesis after VARCHAR length")
             self.next()
 
-        while (self.not_eof() and self.tokens[0].type != TokenType.DELIMITER and self.tokens[0].type != TokenType.RIGHT_PAREN):
-            if self.tokens[0].type == TokenType.KEYWORD and self.tokens[0].value == "NOT":
+        while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
+            if self.is_keyword() and self.tokens[0].value == "NOT":
                 self.next()
-                if self.tokens[0].type == TokenType.KEYWORD and self.tokens[0].value == "NULL":
+                if self.is_keyword() and self.curr_value() == "NULL":
                     column.constraints.append("NOT NULL")
                     self.next()
                 else:
@@ -106,7 +105,6 @@ class Parser:
         return column
     
     def parse_alter_statement(self) -> Node:
-        print("TESTTESTTEST")
         # Current node is ALTER so pop
         self.next()
 
@@ -147,11 +145,24 @@ class Parser:
     def is_semicolon(self) -> bool:
         return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ';'
     
+    def is_delimiter(self) -> bool:
+        return self.curr_type() == TokenType.DELIMITER
+    
+    def is_comma(self) -> bool:
+        return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ','
+    
+    def is_left_paren(self) -> bool: 
+        return self.tokens[0].type == TokenType.LEFT_PAREN
+    
+    def is_right_paren(self) -> bool:
+        return self.tokens[0].type == TokenType.RIGHT_PAREN
+    
     def curr_value(self) -> str:
         return self.tokens[0].value
     
     def curr_type(self) -> TokenType:
         return self.tokens[0].type
+        
 
     def next(self) -> Token:
         return self.tokens.pop(0)

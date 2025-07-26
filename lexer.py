@@ -101,7 +101,7 @@ def tokenize(sourceCode: str) -> list[Token]:
 
         if (token == None):
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
-        print(f'Token: {token}')
+        # print(f'Token: {token}')
         tokens.append(token)
     tokens.append(Token(value='End of File', type=TokenType.EOF))
     return tokens
