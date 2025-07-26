@@ -58,10 +58,20 @@ class AlterOperation(Node):
     action: str
     column: ColumnDef
 
+    def sql(self) -> str:
+        return f'{self.action} COLUMN {self.column.name}'
+
 class AlterTable(Node):
     type: Literal[NodeType.ALTER_TABLE] = NodeType.ALTER_TABLE
     table: Table = None
     operations: List[AlterOperation] = Field(default_factory=list)
+
+    def sql(self) -> str:
+        sql = f'ALTER TABLE {self.table.name}\n'
+        op_string = ",\n".join([op.sql() for op in self.operations])
+
+        return sql + op_string + ";"
+
 
 
 BodyItem = Annotated[
@@ -94,6 +104,11 @@ class Schema(Node):
                 for op in alter.operations:
                     if op.action == "ADD":
                         create_tables[table_name].columns.append(op.column)
+                    if op.action == "DROP":
+                        create_tables[table_name].columns = [
+                            col for col in create_tables[table_name].columns
+                            if col.name != op.column.name
+                        ]
                 return True
             return False
     
@@ -130,12 +145,12 @@ class Schema(Node):
             if hasattr(item, 'sql') and callable(getattr(item, 'sql')):
                 sql_statements.append(item.sql())
             # Handle items that don't have sql method
-            elif item.type == NodeType.ALTER_TABLE:
-                for op in item.operations:
-                    if op.action == "ADD":
-                        table_name = item.table.name
-                        column_sql = op.column.sql()
-                        sql_statements.append(f"ALTER TABLE {table_name} ADD COLUMN {column_sql};")
+            # elif item.type == NodeType.ALTER_TABLE:
+            #     for op in item.operations:
+            #         if op.action == "ADD":
+            #             table_name = item.table.name
+            #             column_sql = op.column.sql()
+            #             sql_statements.append(f"ALTER TABLE {table_name} ADD COLUMN {column_sql};")
         
         return "\n\n".join(sql_statements)
     

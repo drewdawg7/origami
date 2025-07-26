@@ -142,16 +142,18 @@ class Parser:
                     if self.is_keyword() and self.curr_value() == 'COLUMN':
                         self.next()
                     if not self.is_identifier():
-                        raise Exception("Expecteed column name after DROP COLUMN")
+                        raise Exception("Expected column name after DROP COLUMN")
                     column_name = self.curr_value()
                     column = ColumnDef(name=column_name)
                     operation = AlterOperation(action="DROP", column=column)
                     alter_stmt.operations.append(operation)
+                    self.next()
                 else:
                     self.next()
             if self.is_comma():
                 self.next()
             elif not self.is_semicolon():
+                print(self.curr_type())
                 raise Exception("Expected comma or semicolon after alter operation")
             
         if self.is_semicolon():
