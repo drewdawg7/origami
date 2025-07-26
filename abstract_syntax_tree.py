@@ -62,6 +62,49 @@ class Schema(Node):
     type: Literal[NodeType.SCHEMA] = NodeType.SCHEMA
     body: List[BodyItem] = Field(default_factory=list)
 
+
+    def fold_alter_statements(self) -> 'Schema':
+        create_tables = {}
+        other_statements  = []
+        alter_statements = []
+
+        for item in self.body: 
+            if item.type == NodeType.CREATE_TABLE:
+                create_tables[item.table.name] = item
+            elif item.type == NodeType.ALTER_TABLE:
+                alter_statements.append(item)
+            else:
+                other_statements.append(item)
+
+        def fold_alter_into_creates(alter: AlterTable) -> bool:
+            table_name = alter.table.name
+            if table_name in create_tables:
+                for op in alter.operations:
+                    if op.action == "ADD":
+                        create_tables[table_name].columns.append(op.column)
+                return True
+            return False
+    
+        remaining_alters = []
+        for alter in alter_statements:
+            if not fold_alter_into_creates(alter):
+                remaining_alters.append(alter)
+
+        if remaining_alters and len(remaining_alters) < len(alter_statements):
+            temp_schema = Schema()
+            temp_schema = Schema()
+            temp_schema.body.extend(list(create_tables.values()))
+            temp_schema.body.extend(other_statements)
+            temp_schema.body.extend(remaining_alters)
+            return temp_schema.fold_alter_statements()
+
+        folded_schema = Schema()
+        folded_schema.body.extend(list(create_tables.values()))
+        folded_schema.body.extend(other_statements)
+        folded_schema.body.extend(remaining_alters)
+
+        return folded_schema
+
     def __str__(self) -> str:
         return self.model_dump_json(indent=1)
     
