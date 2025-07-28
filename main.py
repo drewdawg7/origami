@@ -25,25 +25,25 @@ def print_ast():
 
   prs = Parser()
 
-  val = prs.produce_ast(TEST_SQL)
-  print(f'Parsing: \n{TEST_SQL}\n')
+  val = prs.produce_ast(TEST_SQL3)
+  print(f'Parsing: \n{TEST_SQL3}\n')
   print("===============================")
   print(val)
 
-  folded_ast = val.fold_alter_statements()
-  print("\nFolded SQL:")
-  print(folded_ast.sql())
+  # folded_ast = val.fold_alter_statements()
+  # print("\nFolded SQL:")
+  # print(folded_ast.sql())
 
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL)
+  val = prs.produce_ast(TEST_SQL3)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL)
+  print(TEST_SQL3)
   print("\nPARSED AST TO SQL\n")
   print(val.sql())
-  print("\nFOLDING ------->\n")
-  print(val.fold().sql())
+  # print("\nFOLDING ------->\n")
+  # print(val.fold().sql())
 
-print_tokens()
+# print_tokens()
 # print_ast()
-# print_sql()
+print_sql()

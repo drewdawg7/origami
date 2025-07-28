@@ -19,7 +19,7 @@ class NodeType(str, Enum):
     IDENTIFIER = "identifier"
     ALTER_OPERATION = "alter_operation",
     LITERAL = "literal"
-    INSERT_CONDITION = "insert_condition"
+    UPDATE_CONDITION = "update_condition"
 
 
 
@@ -47,10 +47,14 @@ class ColumnDef(Node):
             return f'{self.name} {self.datatype} {constraint_str}'
         return f'{self.name} {self.datatype}'
 
-class InsertCondition(Node):
-    type: Literal[NodeType.INSERT_CONDITION] = NodeType.INSERT_CONDITION
+class UpdateCondition(Node):
+    type: Literal[NodeType.UPDATE_CONDITION] = NodeType.UPDATE_CONDITION
     column: str = ""
+    operator: str = ""
     value: ValueLiteral = None
+
+    def sql(self) -> str:
+        return f"{self.column} {self.operator} {self.value.value}" 
 
 class Insert(Node):
     type: Literal[NodeType.INSERT] = NodeType.INSERT
@@ -76,7 +80,25 @@ class Update(Node):
     table_name: str = ""
     columns: List[str] = Field(default_factory=list)
     values: List[ValueLiteral] = Field(default_factory=list)
-    condition: InsertCondition = None
+    conditions: List[UpdateCondition] = Field(default_factory=list)
+
+    def sql(self) -> str:
+        # Create the SET clause by pairing columns with their values
+        set_clauses = []
+        for column, value in zip(self.columns, self.values):
+            set_clauses.append(f"{column} = {value.value}")
+        set_clause = ", ".join(set_clauses)
+        
+        # Build the basic UPDATE statement
+        sql = f"UPDATE {self.table_name}\nSET {set_clause}"
+        
+        # Add WHERE clause if conditions exist
+        if self.conditions:
+            conditions_str = " AND ".join([condition.sql() for condition in self.conditions])
+            sql += f"\nWHERE {conditions_str}"
+        
+        return f"{sql};"
+
 
 class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE

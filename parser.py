@@ -43,15 +43,39 @@ class Parser:
         self.next()
         if not self.is_identifier():
             raise Exception(f"Expected table name after UPDATE: {self.curr_token()}")
-        table_name = self.next()
+        table_name = self.next().value
         if not self.is_keyword():
             raise Exception(f"Expected SET after table name: {self.curr_token()}")
         self.next()
         if not self.is_identifier():
             raise Exception(f"Expected column name after SET: {self.curr_token()}")
-        column_name = self.next()
-        if not 
-        return None
+        update_column_name = self.next().value
+        if not self.is_equals():
+            raise Exception(f"Expected = after column name: {self.curr_token()}")
+        self.next()
+        if not self.is_literal():
+            raise Exception(f"Expected literal after = : {self.curr_token()}")
+        value = ValueLiteral(value = self.next().value)
+        if not self.is_where():
+            raise Exception(f"Expected WHERE while parsing UPDATE: {self.curr_token()}")
+        self.next()
+        if not self.is_identifier():
+            raise Exception(f"Expected column name after WHERE: {self.curr_token()}")
+        condition_column_name = self.next().value
+        if not self.is_equals():
+            raise Exception(f"Expected condition operator in WHERE clause: {self.curr_token()}")
+        condition_operator = self.next().value
+        if not self.is_literal():
+            raise Exception(f"Expected literal while parsing WHERE clause: {self.curr_token()}")
+        condition_value = self.next().value
+        if not self.is_semicolon():
+            raise Exception(f"Expected semicolon while parsing WHERE clause: {self.curr_token()}")
+        self.next()
+        update_condition = UpdateCondition(column=condition_column_name, operator=condition_operator, value=ValueLiteral(value=condition_value))
+
+        update_stmt = Update(table_name=table_name, columns=[update_column_name], values=[value], conditions=[update_condition])
+
+        return update_stmt
 
     def parse_insert_statement(self) -> Node:
         columns = []
@@ -259,7 +283,15 @@ class Parser:
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
+    def is_where(self) -> bool:
+        return self.curr_type() == TokenType.KEYWORD and self.curr_value() == "WHERE"
     
+    def is_literal(self) -> bool:
+        return self.curr_type() == TokenType.LITERAL
+    
+    def is_equals(self) -> bool:
+        return self.curr_type() == TokenType.EQUALS
+
     def is_identifier(self) -> bool:
         return self.curr_type() == TokenType.IDENTIFIER
     
