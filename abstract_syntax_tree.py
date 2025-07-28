@@ -84,6 +84,8 @@ class AlterOperation(Node):
     column: ColumnDef
 
     def sql(self) -> str:
+        if self.column.constraints:
+            return f'{self.action} COLUMN {self.column.name} {", ".join(self.column.constraints)}'
         return f'{self.action} COLUMN {self.column.name}'
 
 class AlterTable(Node):
@@ -110,6 +112,9 @@ class Schema(Node):
     body: List[BodyItem] = Field(default_factory=list)
 
 
+    def fold(self) -> 'Schema':
+        return self.fold_alter_statements()
+    
     def fold_alter_statements(self) -> 'Schema':
         create_tables = {}
         other_statements  = []
