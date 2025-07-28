@@ -10,19 +10,24 @@ if project_root not in sys.path:
 
 
 from parser import Parser
+
+
+
+test_scripts_path = './test_scripts/'
+
+# TODO Need to update the script to match the simple create table above
+# table_operations = open(f'{test_scripts_path}table_operations.sql')
+# sql1 = table_operations.read()
+
 sql1 = """
 CREATE TABLE users (
   id INT PRIMARY KEY NOT NULL,
   name VARCHAR(64),
 );
 """
-sql2 = """
-INSERT INTO users (id, name) VALUES
- (1, 'Drew'),
- (2, 'Ethan');
-"""
 
-
+insert_statements = open(f'{test_scripts_path}insert_statements.sql')
+sql2 = insert_statements.read()
 
 def test_basic_create_with_constraints():
     parser = Parser()
