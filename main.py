@@ -21,13 +21,14 @@ DROP COLUMN uselesscol;
 """
 
 TEST_SQL2="""
-INSERT INTO users (id, name)
-VALUES (1, 'Drew');
+INSERT INTO users (id, name) VALUES
+ (1, 'Drew'),
+ (2, 'Ethan');
 """
 
 
 def print_tokens():
-  tokens = tokenize(TEST_SQL2)
+  tokens = tokenize(TEST_SQL)
   print(tokens)
 
 
@@ -35,7 +36,7 @@ def print_ast():
 
   prs = Parser()
 
-  val = prs.produce_ast(TEST_SQL2)
+  val = prs.produce_ast(TEST_SQL)
   print(f'Parsing: \n{TEST_SQL}\ninto\n')
   print("===============================")
   print(val)
@@ -46,7 +47,11 @@ def print_ast():
   # print("\nFolded SQL:")
   # print(folded_ast.sql())
 
-
+def print_sql():
+  prs = Parser()
+  val = prs.produce_ast(TEST_SQL2)
+  print(val.sql())
 
 print_tokens()
 print_ast()
+# print_sql()

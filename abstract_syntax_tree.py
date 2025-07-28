@@ -52,6 +52,19 @@ class Insert(Node):
     columns: List[str] = Field(default_factory=list)
     values: List[List[ValueLiteral]] = Field(default_factory=list)
 
+    def sql(self) -> str:
+        columns_str = ", ".join(self.columns)
+        value_strings = []
+        for value_list in self.values:
+            value_string = "("
+            value_string += ", ".join([val.value for val in value_list ]) + ")"
+            value_strings.append(value_string)
+        full_value_string = ",\n".join(value_strings)
+        if self.columns:
+            return f"INSERT INTO {self.table_name} ({columns_str}) VALUES\n{full_value_string};"
+        else:
+            return f"INSERT INTO {self.table_name} VALUES\n{full_value_string};"
+
 
 
 class CreateTable(Node):

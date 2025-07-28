@@ -18,8 +18,7 @@ KEYWORDS = [
     'KEY',
     'LITERAL',
     'NOT',
-    'NULL'
-    'INTO',
+    'NULL',
     'VALUES'
 ]
 
@@ -92,12 +91,12 @@ def tokenize(sourceCode: str) -> list[Token]:
         else:
             if (src[0] == "'" or src[0] == '"'):
                 quote_char = src.pop(0)
-                string_value = ""
+                string_value = f"{quote_char}"
                 while (len(src) > 0 and src[0] != quote_char):
                     string_value += src.pop(0)
 
                 if len(src) > 0 and src[0] == quote_char:
-                    src.pop(0)
+                    string_value += src.pop(0)
                     token = Token(value=string_value, type=TokenType.LITERAL)
                 else:
                     raise Exception("Expected closing quote")
