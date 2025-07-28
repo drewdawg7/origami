@@ -29,6 +29,17 @@ CREATE TABLE users (
 insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 sql2 = insert_statements.read()
 
+def assert_column(column, expected_name, expected_datatype, expected_constraints):
+    assert column.name == expected_name
+    assert column.datatype == expected_datatype
+    if expected_constraints:
+        assert(len(column.constraints) == len(expected_constraints))
+        for i, constraint in enumerate(expected_constraints):
+            assert column.constraints[i] == constraint
+    else:
+        assert len(column.constraints) == 0
+
+
 def test_basic_create_with_constraints():
     parser = Parser()
     ast = parser.produce_ast(sql1)
@@ -39,23 +50,11 @@ def test_basic_create_with_constraints():
     assert ast.body[0].table.name == 'users' 
     # Table has 2 columns
     assert len(ast.body[0].columns) == 2
-    # First column is called id
-    assert ast.body[0].columns[0].name == 'id'
-    # First column is an INT
-    assert ast.body[0].columns[0].datatype == "INT"
-    # First column has 2 constraints
-    assert len(ast.body[0].columns[0].constraints) == 2
-    # The first constraint is PRIMARY KEY and the second is NOT NULL
-    assert ast.body[0].columns[0].constraints[0] == "PRIMARY KEY"
-    assert ast.body[0].columns[0].constraints[1] == "NOT NULL"
+    assert_column(ast.body[0].columns[0], 'id', 'INT', ["PRIMARY KEY", "NOT NULL"])
+   
+    assert_column(ast.body[0].columns[1], 'name', 'VARCHAR(64)', [])
 
 
-    # Second column is called name
-    assert ast.body[0].columns[1].name == 'name'
-    # Seond column is a VARCHAR(64)
-    assert ast.body[0].columns[1].datatype == "VARCHAR(64)"
-    #Second column has no constraints
-    assert len(ast.body[0].columns[1].constraints) == 0
 
 
 def test_insert_statements():
