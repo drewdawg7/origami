@@ -32,11 +32,27 @@ class Parser:
                 return self.parse_alter_statement()
             elif self.curr_value() == 'INSERT':
                 return self.parse_insert_statement()
+            elif self.curr_value() == 'UPDATE':
+                return self.parse_update_statement()
          
         
         self.next()
         return None
     
+    def parse_update_statement(self) -> Node:
+        self.next()
+        if not self.is_identifier():
+            raise Exception(f"Expected table name after UPDATE: {self.curr_token()}")
+        table_name = self.next()
+        if not self.is_keyword():
+            raise Exception(f"Expected SET after table name: {self.curr_token()}")
+        self.next()
+        if not self.is_identifier():
+            raise Exception(f"Expected column name after SET: {self.curr_token()}")
+        column_name = self.next()
+        if not 
+        return None
+
     def parse_insert_statement(self) -> Node:
         columns = []
         
@@ -242,6 +258,7 @@ class Parser:
 
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
+    
     
     def is_identifier(self) -> bool:
         return self.curr_type() == TokenType.IDENTIFIER

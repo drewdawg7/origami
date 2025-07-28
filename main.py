@@ -9,10 +9,15 @@ insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 
 TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
+TEST_SQL3 = """
+UPDATE users
+SET name = "Drew"
+WHERE id=1;
+"""
 
 
 def print_tokens():
-  tokens = tokenize(TEST_SQL)
+  tokens = tokenize(TEST_SQL3)
   print(tokens)
 
 
@@ -39,6 +44,6 @@ def print_sql():
   print("\nFOLDING ------->\n")
   print(val.fold().sql())
 
-# print_tokens()
+print_tokens()
 # print_ast()
-print_sql()
+# print_sql()

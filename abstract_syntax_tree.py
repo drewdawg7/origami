@@ -11,6 +11,7 @@ class NodeType(str, Enum):
     CREATE_TABLE = "create_table"
     ALTER_TABLE = "alter_table"
     INSERT = "insert"
+    UPDATE = "update"
     TABLE = "table"
     COLUMN_DEF = "column_def"
     DATATYPE = "datatype"
@@ -18,6 +19,7 @@ class NodeType(str, Enum):
     IDENTIFIER = "identifier"
     ALTER_OPERATION = "alter_operation",
     LITERAL = "literal"
+    INSERT_CONDITION = "insert_condition"
 
 
 
@@ -45,6 +47,10 @@ class ColumnDef(Node):
             return f'{self.name} {self.datatype} {constraint_str}'
         return f'{self.name} {self.datatype}'
 
+class InsertCondition(Node):
+    type: Literal[NodeType.INSERT_CONDITION] = NodeType.INSERT_CONDITION
+    column: str = ""
+    value: ValueLiteral = None
 
 class Insert(Node):
     type: Literal[NodeType.INSERT] = NodeType.INSERT
@@ -65,7 +71,12 @@ class Insert(Node):
         else:
             return f"INSERT INTO {self.table_name} VALUES\n{full_value_string};"
 
-
+class Update(Node):
+    type: Literal[NodeType.UPDATE] = NodeType.UPDATE
+    table_name: str = ""
+    columns: List[str] = Field(default_factory=list)
+    values: List[ValueLiteral] = Field(default_factory=list)
+    condition: InsertCondition = None
 
 class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
