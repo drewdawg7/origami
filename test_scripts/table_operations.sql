@@ -1,0 +1,15 @@
+CREATE TABLE users (
+  id INT PRIMARY KEY NOT NULL,
+  name VARCHAR(64),
+  uselesscol INT
+);
+
+CREATE TABLE position (
+  id INT PRIMARY KEY NOT NULL,
+  title VARCHAR(64)
+)
+
+ALTER TABLE users
+ADD COLUMN email VARCHAR(64) NOT NULL,
+ADD COLUMN age INT,
+DROP COLUMN uselesscol;

@@ -2,29 +2,13 @@ from parser import Parser
 from lexer import tokenize
 
 
-TEST_SQL="""
-CREATE TABLE users (
-  id INT PRIMARY KEY NOT NULL,
-  name VARCHAR(64),
-  uselesscol INT
-);
+test_scripts_path = './test_scripts/'
 
-CREATE TABLE position (
-  id INT PRIMARY KEY NOT NULL,
-  title VARCHAR(64)
-)
+table_operations = open(f'{test_scripts_path}table_operations.sql')
+insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 
-ALTER TABLE users
-ADD COLUMN email VARCHAR(64) NOT NULL,
-ADD COLUMN age INT,
-DROP COLUMN uselesscol;
-"""
-
-TEST_SQL2="""
-INSERT INTO users (id, name) VALUES
- (1, 'Drew'),
- (2, 'Ethan');
-"""
+TEST_SQL = table_operations.read()
+TEST_SQL2 = insert_statements.read()
 
 
 def print_tokens():
