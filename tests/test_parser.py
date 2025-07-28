@@ -16,6 +16,12 @@ CREATE TABLE users (
   name VARCHAR(64),
 );
 """
+sql2 = """
+INSERT INTO users (id, name) VALUES
+ (1, 'Drew'),
+ (2, 'Ethan');
+"""
+
 
 
 def test_basic_create_with_constraints():
@@ -46,3 +52,28 @@ def test_basic_create_with_constraints():
     #Second column has no constraints
     assert len(ast.body[0].columns[1].constraints) == 0
 
+
+def test_insert_statements():
+    parser = Parser()
+    ast = parser.produce_ast(sql2)
+
+    # 1 INSERT statement
+    assert len(ast.body) == 1
+
+    # 2 columns being inserted into
+    assert len(ast.body[0].columns) == 2
+
+    # First column is id and second is name
+    assert ast.body[0].columns[0] == 'id'
+    assert ast.body[0].columns[1] == 'name'
+
+    # 2 rows being inserted
+    assert len(ast.body[0].values) == 2
+
+    # First row is (1, Drew)
+    assert ast.body[0].values[0][0].value == "1"
+    assert ast.body[0].values[0][1].value == f"'Drew'"
+    
+    # Second row is (2, Ethan)
+    assert ast.body[0].values[1][0].value == "2"
+    assert ast.body[0].values[1][1].value == f"'Ethan'"

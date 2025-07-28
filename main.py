@@ -36,8 +36,8 @@ def print_ast():
 
   prs = Parser()
 
-  val = prs.produce_ast(TEST_SQL)
-  print(f'Parsing: \n{TEST_SQL}\ninto\n')
+  val = prs.produce_ast(TEST_SQL2)
+  print(f'Parsing: \n{TEST_SQL2}\ninto\n')
   print("===============================")
   print(val)
 
