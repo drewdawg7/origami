@@ -180,9 +180,8 @@ class Parser:
                 raise Exception("Expected integer for VARCHAR length")
             column.datatype += f'({self.curr_value()})'
             self.next()
-            if not self.is_right_paren():
-                raise Exception("Expected closing parenthesis after VARCHAR length")
-            self.next()
+
+            self.expect_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
 
         while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
             if self.consume_keyword_sequence("NOT", "NULL"):
@@ -217,13 +216,11 @@ class Parser:
                 elif self.curr_value() == 'DROP':
                     self.next()
                     self.expect_keyword("COLUMN")
-                    if not self.is_identifier():
-                        raise Exception("Expected column name after DROP COLUMN")
-                    column_name = self.curr_value()
+         
+                    column_name = self.expect_identifier("column name")
                     column = ColumnDef(name=column_name)
                     operation = AlterOperation(action="DROP", column=column)
                     alter_stmt.operations.append(operation)
-                    self.next()
                 else:
                     self.next()
             if self.is_comma():
