@@ -1,11 +1,6 @@
 from abstract_syntax_tree import * 
 from lexer import *
 
-
-
-
-
-
 class Parser:
     tokens: list[Token] = []
 
@@ -50,9 +45,8 @@ class Parser:
         
         self.expect_token_type(TokenType.EQUALS, "after column name")
    
-        if not self.is_literal():
-            raise Exception(f"Expected literal after = : {self.curr_token()}")
-        value = ValueLiteral(value = self.next().value)
+
+        value = ValueLiteral(value=self.expect_literal("after ="))
 
         self.expect_keyword("WHERE")
 
@@ -60,9 +54,8 @@ class Parser:
         if not self.is_equals():
             raise Exception(f"Expected condition operator in WHERE clause: {self.curr_token()}")
         condition_operator = self.next().value
-        if not self.is_literal():
-            raise Exception(f"Expected literal while parsing WHERE clause: {self.curr_token()}")
-        condition_value = self.next().value
+
+        condition_value = self.expect_literal("while parsing WHERE clause")
         if not self.is_semicolon():
             raise Exception(f"Expected semicolon while parsing WHERE clause: {self.curr_token()}")
         self.next()
@@ -176,10 +169,8 @@ class Parser:
 
         if column.datatype == "VARCHAR" and self.is_left_paren():
             self.next()
-            if self.curr_type() != TokenType.LITERAL:
-                raise Exception("Expected integer for VARCHAR length")
-            column.datatype += f'({self.curr_value()})'
-            self.next()
+
+            column.datatype += f'({self.expect_literal("for VARCHAR length")})'
 
             self.expect_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
 
@@ -241,6 +232,11 @@ class Parser:
             raise Exception(f"Expected {keyword} keyword, got: {self.curr_token()}")
         self.next()
         
+    def expect_literal(self, context: str = "") -> str:
+        if not self.is_literal():
+            raise Exception(f"Expected literal{' ' + context if context else ''}, got: {self.curr_token()}")
+        return self.next().value
+
     def expect_identifier(self, context: str = "") -> str:
         if not self.is_identifier():
             raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
