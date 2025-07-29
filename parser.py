@@ -41,27 +41,22 @@ class Parser:
     
     def parse_update_statement(self) -> Node:
         self.next()
-        if not self.is_identifier():
-            raise Exception(f"Expected table name after UPDATE: {self.curr_token()}")
-        table_name = self.next().value
-        if not self.is_keyword():
-            raise Exception(f"Expected SET after table name: {self.curr_token()}")
-        self.next()
-        if not self.is_identifier():
-            raise Exception(f"Expected column name after SET: {self.curr_token()}")
-        update_column_name = self.next().value
+   
+        table_name = self.expect_identifier("table name")
+
+        self.expect_keyword("SET")
+
+        update_column_name = self.expect_identifier("column name")
         if not self.is_equals():
             raise Exception(f"Expected = after column name: {self.curr_token()}")
         self.next()
         if not self.is_literal():
             raise Exception(f"Expected literal after = : {self.curr_token()}")
         value = ValueLiteral(value = self.next().value)
-        if not self.is_where():
-            raise Exception(f"Expected WHERE while parsing UPDATE: {self.curr_token()}")
-        self.next()
-        if not self.is_identifier():
-            raise Exception(f"Expected column name after WHERE: {self.curr_token()}")
-        condition_column_name = self.next().value
+
+        self.expect_keyword("WHERE")
+
+        condition_column_name = self.expect_identifier("column name")
         if not self.is_equals():
             raise Exception(f"Expected condition operator in WHERE clause: {self.curr_token()}")
         condition_operator = self.next().value
@@ -81,13 +76,11 @@ class Parser:
         columns = []
         
         self.next()
-        if not self.is_keyword() and self.curr_value() != 'INTO':
-            raise Exception("Expected INTO after INSERT")
-        self.next()
-        if not self.is_identifier():
-            raise Exception("Expected table name after INSERT INTO")
-        table_name = self.curr_value()
-        self.next()
+
+        self.expect_keyword("INTO")
+        
+        table_name = self.expect_identifier("table name")
+
         if not self.is_left_paren():
             raise Exception("Expected opening parenthesis after table name")
         self.next()
@@ -129,7 +122,7 @@ class Parser:
                 raise Exception(f'Expected closing parenthesis after values in INSERT: {self.curr_token()}')
             self.next()
             
-            if (not self.is_semicolon() and not self.is_comma()):
+            if (not self.is_delimiter()):
                 raise Exception(f'Expected semicolon or comma after closing parenthesis: {self.curr_token()}')
             if (self.is_semicolon()):
                 in_values = False
@@ -156,9 +149,7 @@ class Parser:
         # If we're here we already know this is a CREATE token
         self.next()
 
-        if not self.is_keyword() and self.curr_value() != 'TABLE':
-            raise Exception("Expected TABLE keyword after CREATE")
-        self.next()
+        self.expect_keyword("TABLE")
 
         if not self.is_identifier():
             raise Exception("Expected table name")
@@ -232,9 +223,7 @@ class Parser:
         # Current node is ALTER so pop
         self.next()
 
-        if not self.is_keyword() or self.curr_value() != 'TABLE':
-            raise Exception("Expected TABLE keyword after ALTER")
-        self.next()  # Skip TABLE
+        self.expect_keyword("TABLE")
 
         if not self.is_identifier():
             raise Exception("Expected table name")
@@ -248,16 +237,14 @@ class Parser:
             if self.is_keyword():
                 if self.curr_value() == 'ADD':
                     self.next()
-                    if self.is_keyword() and self.curr_value() == 'COLUMN':
-                        self.next()
+                    self.expect_keyword("COLUMN")
                     column = self.parse_column_def()
                     operation = AlterOperation(action="ADD", column=column)
                     alter_stmt.operations.append(operation)
 
                 elif self.curr_value() == 'DROP':
                     self.next()
-                    if self.is_keyword() and self.curr_value() == 'COLUMN':
-                        self.next()
+                    self.expect_keyword("COLUMN")
                     if not self.is_identifier():
                         raise Exception("Expected column name after DROP COLUMN")
                     column_name = self.curr_value()
@@ -280,6 +267,16 @@ class Parser:
 
 
 
+    def expect_keyword(self, keyword:str ) -> None:
+        if not self.is_keyword() or self.curr_value() != keyword:
+            raise Exception(f"Expected {keyword} keyword, got: {self.curr_token()}")
+        self.next()
+        
+    def expect_identifier(self, context: str = "") -> str:
+        if not self.is_identifier():
+            raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
+        return self.next().value
+    
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
