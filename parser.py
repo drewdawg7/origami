@@ -63,71 +63,176 @@ class Parser:
 
         return update_stmt
 
-    def parse_insert_statement(self) -> Node:
-        columns = []
-        
-        self.next()
-
-        self.consume_keyword("INTO")
-        
-        table_name = self.consume_identifier("table name")
-
-        self.consume_token_type(TokenType.LEFT_PAREN, "after table name")
-        while self.is_identifier() or self.is_comma():
-            # print(f'Token in Column Loop: {self.curr_token()}')
-            if self.is_comma():
-                self.next()
-            elif self.is_identifier():
-                columns.append(self.curr_value())
-                self.next()
-            else:
-                raise Exception(f'Found unexpected token while parsing INSERT statemnt: {self.curr_token()}') 
-
-        self.consume_token_type(TokenType.RIGHT_PAREN, "after columns in INSERT")
-        self.consume_keyword("VALUES")
-      
-        # print(f'Token before Value Loop: {self.curr_token()}')
-        in_values = True
-        all_values = []
-        while (in_values):
-            values = []
     
-            self.consume_token_type(TokenType.LEFT_PAREN, "after VALUES")
-            while self.curr_type() == TokenType.LITERAL or self.is_comma():
-                # print(f'Token in Value Loop: {self.curr_token()}')
-                if self.is_comma():
-                    self.next()
-                elif self.is_literal():
-                    values.append(self.curr_value())
-                    self.next()
-                else:
-                    raise Exception(f'Found unexpected token while parsing INSERT statement: {self.curr_token()}')
+    
+    def parse_insert_statement(self) -> Node:
+        insert_parser = self.sequence(
+            self.keyword("INSERT"),
+            self.keyword("INTO"),
+            self.identifier(),
+            self.parse_column_list(),
+            self.keyword("VALUES"),
+            self.parse_value_lists()
+        )
+        results = insert_parser()
+        if not results:
+            return None
+        _, _, table_name, columns, _, all_values = results
+        for values in all_values:
+            if len(columns) != len(values):
+                raise Exception("Columns and values have mismatched lengths")
             
-            
-            self.consume_token_type(TokenType.RIGHT_PAREN, "after values in INSERT")
-            
-            if (not self.is_delimiter()):
-                raise Exception(f'Expected semicolon or comma after closing parenthesis: {self.curr_token()}')
-            if (self.is_semicolon()):
-                in_values = False
-            all_values.append(values)
-            self.next()
-            
-        
-        for val_list in all_values:
-            if (len(columns) != len(val_list)):
-                raise Exception(f'Columns and values have a mismatched length')
         value_literals = []
         for val_list in all_values:
             inner_value_literals = []
-            for val in val_list: 
+            for val in val_list:
                 inner_value_literals.append(ValueLiteral(value=val))
             value_literals.append(inner_value_literals)
-        insert_stmt = Insert(table_name=table_name, columns=columns, values=value_literals)
-        return insert_stmt
-                 
-        
-        
+        return Insert(table_name=table_name, columns=columns, values=value_literals)
+
+    def keyword(self, expected_word):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            if self.is_keyword() and self.curr_value() == expected_word:
+                result = self.curr_value()
+                self.next()
+                return result
+            self.tokens = saved_tokens
+            return None
+        return parser
+
+    def identifier(self):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            if self.is_identifier():
+                result = self.curr_value()
+                self.next()
+                return result
+            self.tokens = saved_tokens
+            return None
+        return parser
+    
+    def literal(self):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            if self.is_literal():
+                result = self.curr_value()
+                self.next()
+                return result
+            self.tokens = saved_tokens
+            return None
+        return parser
+    
+    def token_type(self, expected_type):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            if self.curr_type() == expected_type:
+                result = self.curr_token()
+                self.next()
+                return result
+            self.tokens = saved_tokens
+            return None
+        return parser
+    
+    def delimiter(self, expected_delimiter):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            if self.is_delimiter() and self.curr_value() == expected_delimiter:
+                result = self.curr_token()
+                self.next()
+                return result
+            self.tokens = saved_tokens
+            return None
+        return parser
+
+    def sequence(self, *parsers):
+        def parser():
+            saved_tokens = self.tokens.copy()
+            results = []
+            for p in parsers:
+                result = p()
+                if result is None:
+                    self.tokens = saved_tokens
+                    return None
+                results.append(result)
+            return results
+        return parser
+    
+    def many(self, parser, separator=None):
+        def parser_fn():
+            results = []
+            while True:
+                # Try to parse a separator first if we have results already
+                if len(results) > 0 and separator is not None:
+                    saved_tokens = self.tokens.copy()
+                    sep_result = separator()
+                    if sep_result is None:
+                        self.tokens = saved_tokens
+                        break
+
+                saved_tokens = self.tokens.copy()
+                result = parser()
+                if result is None:
+                    self.tokens = saved_tokens
+                    break
+                    
+                results.append(result)
+    
+            return results
+        return parser_fn
+
+    def parse_column_list(self):
+        def parser():
+            left_paren = self.token_type(TokenType.LEFT_PAREN)()
+            if left_paren is None:
+                return None
+            columns = self.many(self.identifier(), self.delimiter(","))()
+            if columns is None:
+                return None
+            right_paren = self.token_type(TokenType.RIGHT_PAREN)()
+            if right_paren is None:
+                return None
+            return columns
+        return parser
+    
+    def parse_value_list(self):
+        def parser():
+            left_paren = self.token_type(TokenType.LEFT_PAREN)()
+            if left_paren is None:
+                return None
+            values = self.many(self.literal(), self.delimiter(","))()
+            if values is None:
+                return None
+            right_paren = self.token_type(TokenType.RIGHT_PAREN)()
+            if right_paren is None:
+                return None
+            return values
+        return parser
+    
+    def parse_value_lists(self):
+        def parser():
+            all_values = []
+            first_time = True
+
+            while True:
+                saved_tokens = self.tokens.copy()
+                value_list = self.parse_value_list()()
+                if value_list is None:
+                    self.tokens = saved_tokens
+                    if first_time:
+                        return None
+                    break
+                all_values.append(value_list)
+                first_time = False
+                saved_tokens = self.tokens.copy()
+                if self.delimiter(";")() is not None:
+                    break
+                elif self.delimiter(",")() is None:
+                    self.tokens = saved_tokens
+                    break
+            return all_values if all_values else None
+        return parser
+            
 
     def parse_create_statement(self) -> Node:
         # If we're here we already know this is a CREATE token
@@ -313,4 +418,6 @@ class Parser:
 
     def next(self) -> Token:
         return self.tokens.pop(0)
+
+
 
