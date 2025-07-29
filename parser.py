@@ -37,25 +37,25 @@ class Parser:
     def parse_update_statement(self) -> Node:
         self.next()
    
-        table_name = self.expect_identifier("table name")
+        table_name = self.consume_identifier("table name")
 
-        self.expect_keyword("SET")
+        self.consume_keyword("SET")
 
-        update_column_name = self.expect_identifier("column name")
+        update_column_name = self.consume_identifier("column name")
         
-        self.expect_token_type(TokenType.EQUALS, "after column name")
+        self.consume_token_type(TokenType.EQUALS, "after column name")
    
 
-        value = ValueLiteral(value=self.expect_literal("after ="))
+        value = ValueLiteral(value=self.consume_literal("after ="))
 
-        self.expect_keyword("WHERE")
+        self.consume_keyword("WHERE")
 
-        condition_column_name = self.expect_identifier("column name")
+        condition_column_name = self.consume_identifier("column name")
         if not self.is_equals():
             raise Exception(f"Expected condition operator in WHERE clause: {self.curr_token()}")
         condition_operator = self.next().value
 
-        condition_value = self.expect_literal("while parsing WHERE clause")
+        condition_value = self.consume_literal("while parsing WHERE clause")
         if not self.is_semicolon():
             raise Exception(f"Expected semicolon while parsing WHERE clause: {self.curr_token()}")
         self.next()
@@ -70,11 +70,11 @@ class Parser:
         
         self.next()
 
-        self.expect_keyword("INTO")
+        self.consume_keyword("INTO")
         
-        table_name = self.expect_identifier("table name")
+        table_name = self.consume_identifier("table name")
 
-        self.expect_token_type(TokenType.LEFT_PAREN, "after table name")
+        self.consume_token_type(TokenType.LEFT_PAREN, "after table name")
         while self.curr_type() == TokenType.IDENTIFIER or self.is_comma():
             # print(f'Token in Column Loop: {self.curr_token()}')
             if self.is_comma():
@@ -85,8 +85,8 @@ class Parser:
             else:
                 raise Exception(f'Found unexpected token while parsing INSERT statemnt: {self.curr_token()}') 
 
-        self.expect_token_type(TokenType.RIGHT_PAREN, "after columns in INSERT")
-        self.expect_keyword("VALUES")
+        self.consume_token_type(TokenType.RIGHT_PAREN, "after columns in INSERT")
+        self.consume_keyword("VALUES")
       
         # print(f'Token before Value Loop: {self.curr_token()}')
         in_values = True
@@ -94,7 +94,7 @@ class Parser:
         while (in_values):
             values = []
     
-            self.expect_token_type(TokenType.LEFT_PAREN, "after VALUES")
+            self.consume_token_type(TokenType.LEFT_PAREN, "after VALUES")
             while self.curr_type() == TokenType.LITERAL or self.is_comma():
                 # print(f'Token in Value Loop: {self.curr_token()}')
                 if self.is_comma():
@@ -106,7 +106,7 @@ class Parser:
                     raise Exception(f'Found unexpected token while parsing INSERT statement: {self.curr_token()}')
             
             
-            self.expect_token_type(TokenType.RIGHT_PAREN, "after values in INSERT")
+            self.consume_token_type(TokenType.RIGHT_PAREN, "after values in INSERT")
             
             if (not self.is_delimiter()):
                 raise Exception(f'Expected semicolon or comma after closing parenthesis: {self.curr_token()}')
@@ -135,17 +135,17 @@ class Parser:
         # If we're here we already know this is a CREATE token
         self.next()
 
-        self.expect_keyword("TABLE")
+        self.consume_keyword("TABLE")
 
 
-        table_name = self.expect_identifier("table name")
+        table_name = self.consume_identifier("table name")
         table = Table(name=table_name)
 
         create_stmt = CreateTable(table=table)
 
  
 
-        self.expect_token_type(TokenType.LEFT_PAREN, "after table name")
+        self.consume_token_type(TokenType.LEFT_PAREN, "after table name")
 
         while (self.not_eof() and not self.is_right_paren()):
             column = self.parse_column_def()
@@ -153,7 +153,7 @@ class Parser:
             if self.is_comma():
                 self.next()
 
-        self.expect_token_type(TokenType.RIGHT_PAREN)
+        self.consume_token_type(TokenType.RIGHT_PAREN)
         if self.is_semicolon():
             self.next()
         return create_stmt
@@ -162,17 +162,17 @@ class Parser:
         column = ColumnDef()
 
 
-        column.name = self.expect_identifier("column name")
+        column.name = self.consume_identifier("column name")
 
 
-        column.datatype = self.expect_datatype()
+        column.datatype = self.consume_datatype()
 
         if column.datatype == "VARCHAR" and self.is_left_paren():
             self.next()
 
-            column.datatype += f'({self.expect_literal("for VARCHAR length")})'
+            column.datatype += f'({self.consume_literal("for VARCHAR length")})'
 
-            self.expect_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
+            self.consume_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
 
         while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
             if self.consume_keyword_sequence("NOT", "NULL"):
@@ -188,9 +188,9 @@ class Parser:
         # Current node is ALTER so pop
         self.next()
 
-        self.expect_keyword("TABLE")
+        self.consume_keyword("TABLE")
 
-        table_name = self.expect_identifier("table name")
+        table_name = self.consume_identifier("table name")
         table = Table(name=table_name)
         alter_stmt = AlterTable(table=table)
         alter_stmt.operations = []
@@ -199,16 +199,16 @@ class Parser:
             if self.is_keyword():
                 if self.curr_value() == 'ADD':
                     self.next()
-                    self.expect_keyword("COLUMN")
+                    self.consume_keyword("COLUMN")
                     column = self.parse_column_def()
                     operation = AlterOperation(action="ADD", column=column)
                     alter_stmt.operations.append(operation)
 
                 elif self.curr_value() == 'DROP':
                     self.next()
-                    self.expect_keyword("COLUMN")
+                    self.consume_keyword("COLUMN")
          
-                    column_name = self.expect_identifier("column name")
+                    column_name = self.consume_identifier("column name")
                     column = ColumnDef(name=column_name)
                     operation = AlterOperation(action="DROP", column=column)
                     alter_stmt.operations.append(operation)
@@ -227,27 +227,27 @@ class Parser:
 
 
 
-    def expect_keyword(self, keyword:str ) -> None:
+    def consume_keyword(self, keyword:str ) -> None:
         if not self.is_keyword() or self.curr_value() != keyword:
             raise Exception(f"Expected {keyword} keyword, got: {self.curr_token()}")
         self.next()
         
-    def expect_literal(self, context: str = "") -> str:
+    def consume_literal(self, context: str = "") -> str:
         if not self.is_literal():
             raise Exception(f"Expected literal{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next().value
 
-    def expect_identifier(self, context: str = "") -> str:
+    def consume_identifier(self, context: str = "") -> str:
         if not self.is_identifier():
             raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next().value
     
-    def expect_datatype(self, context: str = "") -> str:
+    def consume_datatype(self, context: str = "") -> str:
         if not self.is_datatype():
             raise Exception(f"Expected datatype{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next().value
     
-    def expect_token_type(self,  token_type: TokenType, context: str = "") -> Token:
+    def consume_token_type(self,  token_type: TokenType, context: str = "") -> Token:
         if self.curr_type() != token_type:
             raise Exception(f"Expected {token_type.name}{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next()
