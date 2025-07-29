@@ -1,5 +1,5 @@
-from abstract_syntax_tree import * 
-from lexer import *
+from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable
+from lexer import TokenType, Token, tokenize
 
 class Parser:
     tokens: list[Token] = []
@@ -11,7 +11,7 @@ class Parser:
 
         while (self.not_eof()): 
             node = self.parse_node()
-            if node != None:
+            if node is not None:
                 schema.body.append(node)
 
         return schema

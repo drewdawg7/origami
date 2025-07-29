@@ -10,7 +10,7 @@ if project_root not in sys.path:
 
 
 from parser import Parser
-from abstract_syntax_tree import *
+from abstract_syntax_tree import ColumnDef, CreateTable, Insert
 
 
 
@@ -75,7 +75,7 @@ def test_insert_statements():
      insert_statement=ast.body[0],   
      expected_columns=['id', 'name'],
      expected_values=[
-         ["1", f"'Drew'"],
-         ["2", f"'Ethan'"]
+         ["1", "'Drew'"],
+         ["2", "'Ethan'"]
      ]
     )

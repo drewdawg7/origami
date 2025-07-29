@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import Enum
 from pydantic.dataclasses import dataclass
 
 
@@ -120,7 +120,7 @@ def tokenize(sourceCode: str) -> list[Token]:
                 else:
                     raise Exception("Unexpected non-digit, non-alpha char encountered")
 
-        if (token == None):
+        if (token is None):
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
         # print(f'Token: {token}')
         tokens.append(token)
