@@ -47,9 +47,9 @@ class Parser:
         self.expect_keyword("SET")
 
         update_column_name = self.expect_identifier("column name")
-        if not self.is_equals():
-            raise Exception(f"Expected = after column name: {self.curr_token()}")
-        self.next()
+        
+        self.expect_token_type(TokenType.EQUALS, "after column name")
+   
         if not self.is_literal():
             raise Exception(f"Expected literal after = : {self.curr_token()}")
         value = ValueLiteral(value = self.next().value)
@@ -81,9 +81,10 @@ class Parser:
         
         table_name = self.expect_identifier("table name")
 
-        if not self.is_left_paren():
-            raise Exception("Expected opening parenthesis after table name")
-        self.next()
+        # if not self.is_left_paren():
+        #     raise Exception("Expected opening parenthesis after table name")
+        # self.next()
+        self.expect_token_type(TokenType.LEFT_PAREN, "after table name")
         while self.curr_type() == TokenType.IDENTIFIER or self.is_comma():
             # print(f'Token in Column Loop: {self.curr_token()}')
             if self.is_comma():
@@ -93,21 +94,17 @@ class Parser:
                 self.next()
             else:
                 raise Exception(f'Found unexpected token while parsing INSERT statemnt: {self.curr_token()}') 
-        if (not self.is_right_paren()):
-            raise Exception(f'Expected closing parenthesis after columns in INSERT: {self.curr_token()}')
-        self.next()
-        if (self.curr_type() != TokenType.KEYWORD and self.curr_value() != 'VALUES'):
-            raise Exception(f'Expected VALUES after columns while parsing INSERT: {self.curr_token()}')
-        self.next()
+
+        self.expect_token_type(TokenType.RIGHT_PAREN, "after columns in INSERT")
+        self.expect_keyword("VALUES")
       
         # print(f'Token before Value Loop: {self.curr_token()}')
         in_values = True
         all_values = []
         while (in_values):
             values = []
-            if (not self.is_left_paren()):
-                raise Exception(f'Expected opening parenthesis after VALUES')
-            self.next()
+    
+            self.expect_token_type(TokenType.LEFT_PAREN, "after VALUES")
             while self.curr_type() == TokenType.LITERAL or self.is_comma():
                 # print(f'Token in Value Loop: {self.curr_token()}')
                 if self.is_comma():
@@ -118,9 +115,8 @@ class Parser:
                 else:
                     raise Exception(f'Found unexpected token while parsing INSERT statement: {self.curr_token()}')
             
-            if (not self.is_right_paren()):
-                raise Exception(f'Expected closing parenthesis after values in INSERT: {self.curr_token()}')
-            self.next()
+            
+            self.expect_token_type(TokenType.RIGHT_PAREN, "after values in INSERT")
             
             if (not self.is_delimiter()):
                 raise Exception(f'Expected semicolon or comma after closing parenthesis: {self.curr_token()}')
@@ -151,18 +147,15 @@ class Parser:
 
         self.expect_keyword("TABLE")
 
-        if not self.is_identifier():
-            raise Exception("Expected table name")
-        
-        table_name = self.curr_value()
-        self.next()
+
+        table_name = self.expect_identifier("table name")
         table = Table(name=table_name)
 
         create_stmt = CreateTable(table=table)
 
-        if not self.is_left_paren():
-            raise Exception("Expected opening parenthesis after table name")
-        self.next()
+ 
+
+        self.expect_token_type(TokenType.LEFT_PAREN, "after table name")
 
         while (self.not_eof() and not self.is_right_paren()):
             column = self.parse_column_def()
@@ -170,10 +163,7 @@ class Parser:
             if self.is_comma():
                 self.next()
 
-        if not self.is_right_paren():
-            raise Exception("Expected closing parenthesis")
-        
-        self.next()
+        self.expect_token_type(TokenType.RIGHT_PAREN)
         if self.is_semicolon():
             self.next()
         return create_stmt
@@ -181,10 +171,8 @@ class Parser:
     def parse_column_def(self) -> ColumnDef:
         column = ColumnDef()
 
-        if self.curr_type() != TokenType.IDENTIFIER:
-            raise Exception("Expected column name")
-        column.name = self.tokens[0].value
-        self.next()
+
+        column.name = self.expect_identifier("column name")
 
         if self.curr_type() != TokenType.DATATYPE:
             raise Exception("Expected datatype")
@@ -225,10 +213,7 @@ class Parser:
 
         self.expect_keyword("TABLE")
 
-        if not self.is_identifier():
-            raise Exception("Expected table name")
-        table_name = self.curr_value()
-        self.next()  # Skip table name
+        table_name = self.expect_identifier("table name")
         table = Table(name=table_name)
         alter_stmt = AlterTable(table=table)
         alter_stmt.operations = []
@@ -276,6 +261,12 @@ class Parser:
         if not self.is_identifier():
             raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next().value
+    
+    def expect_token_type(self,  token_type: TokenType, context: str = "") -> Token:
+        if self.curr_type() != token_type:
+            raise Exception(f"Expected {token_type.name}{' ' + context if context else ''}, got: {self.curr_token()}")
+        return self.next()
+
     
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
