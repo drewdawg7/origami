@@ -22,7 +22,7 @@ class Parser:
         return schema
 
     def not_eof(self) -> bool:
-        return self.tokens[0].type != TokenType.EOF
+        return self.curr_type() != TokenType.EOF
     
     def parse_node(self) -> Node:
         if self.is_keyword():
@@ -81,9 +81,6 @@ class Parser:
         
         table_name = self.expect_identifier("table name")
 
-        # if not self.is_left_paren():
-        #     raise Exception("Expected opening parenthesis after table name")
-        # self.next()
         self.expect_token_type(TokenType.LEFT_PAREN, "after table name")
         while self.curr_type() == TokenType.IDENTIFIER or self.is_comma():
             # print(f'Token in Column Loop: {self.curr_token()}')
@@ -174,16 +171,14 @@ class Parser:
 
         column.name = self.expect_identifier("column name")
 
-        if self.curr_type() != TokenType.DATATYPE:
-            raise Exception("Expected datatype")
-        column.datatype = self.curr_value()
-        self.next()
+
+        column.datatype = self.expect_datatype()
 
         if column.datatype == "VARCHAR" and self.is_left_paren():
             self.next()
             if self.curr_type() != TokenType.LITERAL:
                 raise Exception("Expected integer for VARCHAR length")
-            column.datatype += f'({self.tokens[0].value})'
+            column.datatype += f'({self.curr_value()})'
             self.next()
             if not self.is_right_paren():
                 raise Exception("Expected closing parenthesis after VARCHAR length")
@@ -254,6 +249,11 @@ class Parser:
             raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next().value
     
+    def expect_datatype(self, context: str = "") -> str:
+        if not self.is_datatype():
+            raise Exception(f"Expected datatype{' ' + context if context else ''}, got: {self.curr_token()}")
+        return self.next().value
+    
     def expect_token_type(self,  token_type: TokenType, context: str = "") -> Token:
         if self.curr_type() != token_type:
             raise Exception(f"Expected {token_type.name}{' ' + context if context else ''}, got: {self.curr_token()}")
@@ -277,6 +277,9 @@ class Parser:
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
+    def is_datatype(self) -> bool:
+        return self.curr_type() == TokenType.DATATYPE
+    
     def is_where(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD and self.curr_value() == "WHERE"
     
@@ -299,10 +302,10 @@ class Parser:
         return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ','
     
     def is_left_paren(self) -> bool: 
-        return self.tokens[0].type == TokenType.LEFT_PAREN
+        return self.curr_type() == TokenType.LEFT_PAREN
     
     def is_right_paren(self) -> bool:
-        return self.tokens[0].type == TokenType.RIGHT_PAREN
+        return self.curr_type() == TokenType.RIGHT_PAREN
     
     def curr_value(self) -> str:
         return self.tokens[0].value
