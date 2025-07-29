@@ -10,22 +10,14 @@ if project_root not in sys.path:
 
 
 from parser import Parser
+from abstract_syntax_tree import *
 
 
 
 test_scripts_path = './test_scripts/'
 
-# TODO Need to update the script to match the simple create table above
-# table_operations = open(f'{test_scripts_path}table_operations.sql')
-# sql1 = table_operations.read()
-
-sql1 = """
-CREATE TABLE users (
-  id INT PRIMARY KEY NOT NULL,
-  name VARCHAR(64),
-);
-"""
-
+create_table = open(f'{test_scripts_path}create_table.sql')
+sql1 = create_table.read()
 insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 sql2 = insert_statements.read()
 
@@ -39,6 +31,30 @@ def assert_column(column, expected_name, expected_datatype, expected_constraints
     else:
         assert len(column.constraints) == 0
 
+def assert_column_full(column, expected_column):
+    assert_column(
+        column,
+        expected_column.name,
+        expected_column.datatype,
+        expected_column.constraints
+    )
+
+def assert_insert(insert_statement: Insert , expected_columns:list[str], expected_values:list[list[str]]):
+    
+    assert len(insert_statement.columns) == len(expected_columns)
+    assert insert_statement.columns == expected_columns
+    
+    for i, value_list in enumerate(insert_statement.values):
+        assert len(value_list) == len(expected_columns)
+        for j, value_literal in enumerate(value_list): 
+            assert value_literal.value == expected_values[i][j]
+
+def assert_create_table(create_table_statement: CreateTable, expected_table_name:str, expected_columns: list[ColumnDef] ):
+    assert create_table_statement.table.name == expected_table_name
+    for i, column in enumerate(create_table_statement.columns):
+        assert_column_full(column, expected_columns[i])
+
+    
 
 def test_basic_create_with_constraints():
     parser = Parser()
@@ -46,38 +62,20 @@ def test_basic_create_with_constraints():
 
     # One Create Table statement
     assert len(ast.body) == 1
-    # Table is called users
-    assert ast.body[0].table.name == 'users' 
-    # Table has 2 columns
-    assert len(ast.body[0].columns) == 2
-    assert_column(ast.body[0].columns[0], 'id', 'INT', ["PRIMARY KEY", "NOT NULL"])
-   
-    assert_column(ast.body[0].columns[1], 'name', 'VARCHAR(64)', [])
 
-
-
+    expected_column1 = ColumnDef(name='id', datatype='INT', constraints=["PRIMARY KEY", "NOT NULL"])
+    expected_column2 = ColumnDef(name='name', datatype='VARCHAR(64)', constraints=[])
+    assert_create_table(ast.body[0], 'users', [expected_column1, expected_column2])
 
 def test_insert_statements():
     parser = Parser()
     ast = parser.produce_ast(sql2)
-
-    # 1 INSERT statement
     assert len(ast.body) == 1
-
-    # 2 columns being inserted into
-    assert len(ast.body[0].columns) == 2
-
-    # First column is id and second is name
-    assert ast.body[0].columns[0] == 'id'
-    assert ast.body[0].columns[1] == 'name'
-
-    # 2 rows being inserted
-    assert len(ast.body[0].values) == 2
-
-    # First row is (1, Drew)
-    assert ast.body[0].values[0][0].value == "1"
-    assert ast.body[0].values[0][1].value == f"'Drew'"
-    
-    # Second row is (2, Ethan)
-    assert ast.body[0].values[1][0].value == "2"
-    assert ast.body[0].values[1][1].value == f"'Ethan'"
+    assert_insert(
+     insert_statement=ast.body[0],   
+     expected_columns=['id', 'name'],
+     expected_values=[
+         ["1", f"'Drew'"],
+         ["2", f"'Ethan'"]
+     ]
+    )
