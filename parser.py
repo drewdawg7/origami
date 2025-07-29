@@ -190,20 +190,12 @@ class Parser:
             self.next()
 
         while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
-            if self.is_keyword() and self.tokens[0].value == "NOT":
-                self.next()
-                if self.is_keyword() and self.curr_value() == "NULL":
-                    column.constraints.append("NOT NULL")
-                    self.next()
-                else:
-                    raise Exception(f"Expected NULL after NOT: {self.curr_token()}")
-            if self.is_keyword() and self.curr_value() == "PRIMARY":
-                self.next()
-                if self.is_keyword() and self.curr_value() == "KEY":
-                    column.constraints.append("PRIMARY KEY")
-                    self.next()
-                else:
-                    raise Exception("Expected KEY after Primary")
+            if self.consume_keyword_sequence("NOT", "NULL"):
+                column.constraints.append("NOT NULL")
+            elif self.consume_keyword_sequence("PRIMARY", "KEY"):
+                column.constraints.append("PRIMARY KEY")
+            else: 
+                raise Exception(f"Unexpected token in column definition: {self.curr_token()}")
 
         return column
     
@@ -267,7 +259,21 @@ class Parser:
             raise Exception(f"Expected {token_type.name}{' ' + context if context else ''}, got: {self.curr_token()}")
         return self.next()
 
-    
+    def consume_keyword_sequence(self, *keywords) -> bool:
+        if self.match_keyword_sequence(*keywords):
+            for _ in keywords:
+                self.next()
+            return True
+        return False
+
+    def match_keyword_sequence(self, *keywords) -> bool:
+        if len(keywords) > len(self.tokens):
+            return False
+        for i, keyword in enumerate(keywords):
+            if i >= len(self.tokens) or self.tokens[i].type != TokenType.KEYWORD or self.tokens[i].value != keyword:
+                return False
+        return True
+
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
