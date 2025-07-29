@@ -56,9 +56,7 @@ class Parser:
         condition_operator = self.next().value
 
         condition_value = self.consume_literal("while parsing WHERE clause")
-        if not self.is_semicolon():
-            raise Exception(f"Expected semicolon while parsing WHERE clause: {self.curr_token()}")
-        self.next()
+        self.consume_delimiter(";")
         update_condition = UpdateCondition(column=condition_column_name, operator=condition_operator, value=ValueLiteral(value=condition_value))
 
         update_stmt = Update(table_name=table_name, columns=[update_column_name], values=[value], conditions=[update_condition])
@@ -75,11 +73,11 @@ class Parser:
         table_name = self.consume_identifier("table name")
 
         self.consume_token_type(TokenType.LEFT_PAREN, "after table name")
-        while self.curr_type() == TokenType.IDENTIFIER or self.is_comma():
+        while self.is_identifier() or self.is_comma():
             # print(f'Token in Column Loop: {self.curr_token()}')
             if self.is_comma():
                 self.next()
-            elif self.curr_type() == TokenType.IDENTIFIER:
+            elif self.is_identifier():
                 columns.append(self.curr_value())
                 self.next()
             else:
@@ -99,7 +97,7 @@ class Parser:
                 # print(f'Token in Value Loop: {self.curr_token()}')
                 if self.is_comma():
                     self.next()
-                elif self.curr_type() == TokenType.LITERAL:
+                elif self.is_literal():
                     values.append(self.curr_value())
                     self.next()
                 else:
@@ -150,12 +148,10 @@ class Parser:
         while (self.not_eof() and not self.is_right_paren()):
             column = self.parse_column_def()
             create_stmt.columns.append(column)
-            if self.is_comma():
-                self.next()
+            self.consume_delimiter(",")
 
         self.consume_token_type(TokenType.RIGHT_PAREN)
-        if self.is_semicolon():
-            self.next()
+        self.consume_delimiter(";")
         return create_stmt
     
     def parse_column_def(self) -> ColumnDef:
@@ -219,18 +215,20 @@ class Parser:
             elif not self.is_semicolon():
                 raise Exception("Expected comma or semicolon after alter operation")
             
-        if self.is_semicolon():
-            self.next()
+        self.consume_delimiter(";")
 
         return alter_stmt
-
-
-
 
     def consume_keyword(self, keyword:str ) -> None:
         if not self.is_keyword() or self.curr_value() != keyword:
             raise Exception(f"Expected {keyword} keyword, got: {self.curr_token()}")
         self.next()
+
+    def consume_delimiter(self, delimiter:str, context: str="" ) -> str:
+        if not self.is_delimiter() or self.curr_value() != delimiter:
+            raise Exception(f"Expected delimiter{' ' + context if context else ''}, got: {self.curr_token()}")
+        return self.next().value
+
         
     def consume_literal(self, context: str = "") -> str:
         if not self.is_literal():
@@ -267,6 +265,10 @@ class Parser:
                 return False
         return True
 
+
+    def check_keyword(self, keyword: str) -> bool:
+        return self.is_keyword() and self.curr_value() == keyword
+    
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
