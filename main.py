@@ -44,9 +44,9 @@ def print_ast():
 
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL4)
+  val = prs.produce_ast(TEST_SQL2)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL4)
+  print(TEST_SQL2)
   print("\nPARSED AST TO SQL\n")
   print(val.sql())
   # print("\nFOLDING ------->\n")

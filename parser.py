@@ -1,6 +1,6 @@
 from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable
 from lexer import TokenType, Token, tokenize
-from typing import Any
+from typing import Any, Callable
 from pydantic import BaseModel
 
 class ParseResult(BaseModel):
@@ -41,66 +41,72 @@ class Parser:
         return None
     
     def parse_update_statement(self) -> Node:
-       
         update_parser = self.sequence(
             self.keyword("UPDATE"),
-            self.identifier(),
+            self.label("table", self.identifier()),
             self.keyword("SET"),
-            self.identifier(),
-            self.equals(),
-            self.literal(),
+            self.label("col", self.identifier()),
+            self.label("op", self.equals()),
+            self.label("value", self.literal()),
             self.keyword("WHERE"),
-            self.identifier(),
-            self.equals(),
-            self.literal(),
+            self.label("cond_col", self.identifier()),
+            self.label("cond_op", self.equals()),
+            self.label("cond_val", self.literal()),
             self.delimiter(";")
         )
-        parse_result = update_parser()
-        if parse_result.value is None:
-            return None
         
-        results = parse_result.value
-        _, table_name, _, column_name, set_op, value, _, condition_column, condition_op, condition_value, _ = results
+        pr = update_parser()
+        if pr.value is None:
+            return None
+            
+        tbl   = pr.value["table"]
+        col   = pr.value["col"] 
+        op    = pr.value["op"].value
+        val   = pr.value["value"]
+        cc    = pr.value["cond_col"]
+        cop   = pr.value["cond_op"].value
+        cv    = pr.value["cond_val"]
         
         update_condition = UpdateCondition(
-            column=condition_column, 
-            operator=condition_op.value,  # Use the token's value
-            value=ValueLiteral(value=condition_value)
+            column=cc,
+            operator=cop,
+            value=ValueLiteral(value=cv)
         )
         
         # Create and return the update statement
         return Update(
-            table_name=table_name,
-            columns=[column_name],
-            values=[ValueLiteral(value=value)],
+            table_name=tbl,
+            columns=[col],
+            values=[ValueLiteral(value=val)],
             conditions=[update_condition]
         )
-
     
-    
+        
     def parse_insert_statement(self) -> Node:
         insert_parser = self.sequence(
             self.keyword("INSERT"),
             self.keyword("INTO"),
-            self.identifier(),
-            self.parse_column_list(),
+            self.label("table_name", self.identifier()),
+            self.label("columns", self.parse_column_list()),
             self.keyword("VALUES"),
-            self.parse_value_lists()
+            self.label("values", self.parse_value_lists())
         )
-        parse_result = insert_parser()
+        pr = insert_parser()
         
-        print(f'\nparse_result.value: {parse_result.value}\n')
-        if parse_result.value is None:
+        if pr.value is None:
             return None
         
-        # Unpack values from the sequence parse result
-        results = parse_result.value
-        _, _, table_name, columns, _, all_values = results
+        # Extract values using labels
+        table_name = pr.value["table_name"]
+        columns = pr.value["columns"]
+        all_values = pr.value["values"]
         
+        # Validate that columns and values have matching lengths
         for values in all_values:
             if len(columns) != len(values):
                 raise Exception("Columns and values have mismatched lengths")
             
+        # Convert raw values to ValueLiteral objects
         value_literals = []
         for val_list in all_values:
             inner_value_literals = []
@@ -180,18 +186,20 @@ class Parser:
     def sequence(self, *parsers):
     
         def parser():
-            print(f'sequence: {self.curr_token()}')
-            results = []
+            merged: dict[str, Any] = {}
+            ordered: list[Any] = []
             for p in parsers:
-                parse_result = p()
-                if parse_result.value is None and not parse_result.is_optional:
-                    return ParseResult()
-                
-                if parse_result.value is not None:
-                    results.append(parse_result.value)
-            
-            return ParseResult(value=results)
-        
+                pr = p()
+                if pr.value is None and not pr.is_optional:
+                    return ParseResult()                # fail immediately
+                if pr.value is None:
+                    continue                            # skip pure-optional
+                if isinstance(pr.value, dict):
+                    merged.update(pr.value)            # pull in named pieces
+                else:
+                    ordered.append(pr.value)           # keep positional ones
+            # if any labels appeared, return dict; else return list
+            return ParseResult(value=merged if merged else ordered)
         return parser
     
     def many(self, parser, separator=None):
@@ -273,23 +281,25 @@ class Parser:
         create_parser = self.sequence(
             self.keyword("CREATE"),
             self.keyword("TABLE"),
-            self.identifier(),
+            self.label("table_name", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
-            self.many(
+            self.label("columns", self.many(
                 self.sequence(
-                    self.identifier(),
-                    self.datatype(),
+                    self.label("column_name", self.identifier()),
+                    self.label("datatype", self.datatype()),
                     self.optional(
-                        self.sequence(
+                        self.label("size_spec", self.sequence(
                             self.token_type(TokenType.LEFT_PAREN),
                             self.literal(),
                             self.token_type(TokenType.RIGHT_PAREN)
-                        )
+                        ))
                     ),
-                    self.optional(self.many(self.parse_constraint()))
+                    self.optional(
+                        self.label("constraints", self.many(self.parse_constraint()))
+                    )
                 ),
                 self.delimiter(",")
-            ),
+            )),
             self.token_type(TokenType.RIGHT_PAREN),
             self.delimiter(";")
         )
@@ -298,148 +308,137 @@ class Parser:
         if parse_result.value is None:
             return None
         
-        results = parse_result.value
-        _, _, table_name, _, column_data_list, _, _ = results
+        # Use labeled values from the parse result
+        table_name = parse_result.value["table_name"]
+        columns_data = parse_result.value["columns"]
         
         table = Table(name=table_name)
-        
         create_stmt = CreateTable(table=table)
         
-        for column_data in column_data_list:
-            column_name = column_data[0]
-            datatype_token = column_data[1]
+        for column in columns_data:
+            column_name = column["column_name"]
+            datatype_token = column["datatype"]
             
+            # Process size specification if present
             size_spec = None
-            constraints_list = None
+            if "size_spec" in column and column["size_spec"] is not None:
+                size_spec = column["size_spec"][1]  # Get the number part
             
-            for i in range(2, len(column_data)):
-                item = column_data[i]
-                if isinstance(item, list) and len(item) == 3:
-                    size_spec = item[1]  # Get the number part
-                elif item is not None:
-                    constraints_list = item
-            
+            # Build datatype string
             datatype_str = datatype_token.value
             if size_spec:
                 datatype_str += f"({size_spec})"
                 
-            column = ColumnDef(
+            # Create column definition
+            column_def = ColumnDef(
                 name=column_name,
                 datatype=datatype_str
             )
             
-            if constraints_list is not None:
+            # Process constraints if present
+            if "constraints" in column and column["constraints"] is not None:
                 processed_constraints = []
-                for constraint in constraints_list:
+                for constraint in column["constraints"]:
                     if isinstance(constraint, list):
                         processed_constraints.append(" ".join(constraint))
                     else:
                         processed_constraints.append(constraint)
                 
-                column.constraints = processed_constraints
+                column_def.constraints = processed_constraints
             
-            create_stmt.columns.append(column)
+            create_stmt.columns.append(column_def)
         
         return create_stmt
         
 
     def parse_alter_statement(self) -> Node:
-
-
         alter_parser = self.sequence(
             self.keyword("ALTER"),
             self.keyword("TABLE"),
-            self.identifier(),
-
-            self.many(
+            self.label("table_name", self.identifier()),
+            self.label("operations", self.many(
                 self.choice(
                     self.sequence(
-                        self.keyword("ADD"),
+                        self.label("action", self.keyword("ADD")),
                         self.keyword("COLUMN"),
-                        self.identifier(),
-                        self.datatype(),
+                        self.label("column_name", self.identifier()),
+                        self.label("datatype", self.datatype()),
                         self.optional(
-                            self.sequence(
+                            self.label("size_spec", self.sequence(
                                 self.token_type(TokenType.LEFT_PAREN),
                                 self.literal(),
                                 self.token_type(TokenType.RIGHT_PAREN)
-                            )
+                            ))
                         ),
-                        self.optional(self.many(self.parse_constraint()))
+                        self.optional(
+                            self.label("constraints", self.many(self.parse_constraint()))
+                        )
                     ),
                     self.sequence(
-                        self.keyword("DROP"),
+                        self.label("action", self.keyword("DROP")),
                         self.keyword("COLUMN"),
-                        self.identifier()
+                        self.label("column_name", self.identifier())
                     )
                 ),
                 self.delimiter(",")
-            ),
+            )),
             self.delimiter(";")
         )
 
-        parse_result = alter_parser()
-        if parse_result.value is None:
+        pr = alter_parser()
+        if pr.value is None:
             return None
         
-        results = parse_result.value
+        # Extract labeled values
+        table_name = pr.value["table_name"]
+        operations = pr.value["operations"]
         
-        _, _, table_name, column_operations, _ = results
-        
+        # Create the table and alter statement
         table = Table(name=table_name)
-        
         alter_stmt = AlterTable(table=table)
         
-        for op_data in column_operations:
-            action = op_data[0]
+        # Process each operation
+        for op in operations:
+            action = op["action"]
+            column_name = op["column_name"]
             
             if action == "ADD":
-                # Get base information
-                _, _, column_name, datatype_token = op_data[:4]
+                datatype_token = op["datatype"]
                 
-                # Check for VARCHAR size specification or constraints
+                # Process size specification if present
                 size_spec = None
-                constraints_list = None
+                if "size_spec" in op and op["size_spec"] is not None:
+                    size_spec = op["size_spec"][1]  # Get the number part
                 
-                # Look through remaining items for size and constraints
-                for i in range(4, len(op_data)):
-                    item = op_data[i]
-                    if isinstance(item, list) and len(item) == 3:
-                        # This is likely the size specification: (255)
-                        size_spec = item[1]  # Get the number part
-                    elif item is not None:
-                        # This is likely the constraints list
-                        constraints_list = item
-                
-                # Create the column with the proper datatype
+                # Build datatype string
                 datatype_str = datatype_token.value
                 if size_spec:
                     datatype_str += f"({size_spec})"
                     
+                # Create column definition
                 column = ColumnDef(
                     name=column_name,
                     datatype=datatype_str
                 )
                 
                 # Process constraints if present
-                if constraints_list is not None:
+                if "constraints" in op and op["constraints"] is not None:
                     processed_constraints = []
-                    for constraint in constraints_list:
+                    for constraint in op["constraints"]:
                         if isinstance(constraint, list):
                             processed_constraints.append(" ".join(constraint))
                         else:
                             processed_constraints.append(constraint)
                     
                     column.constraints = processed_constraints
-            
+                    
             elif action == "DROP":
-                _, _, column_name = op_data
-                
                 column = ColumnDef(
                     name=column_name,
                     datatype=""  # No datatype for DROP operations
                 )
             
+            # Create the operation and add it to the statement
             operation = AlterOperation(action=action, column=column)
             alter_stmt.operations.append(operation)
         
@@ -467,6 +466,13 @@ class Parser:
             self.keyword("NULL")
         )
 
+    def label(self, name: str, parser: Callable[[], ParseResult]) -> Callable[[], ParseResult]:
+        def _p():
+            pr = parser()
+            if pr.value is None:
+                return pr
+            return ParseResult(value={name: pr.value}, is_optional=pr.is_optional)
+        return _p
     def parse_primary_key(self):
         return self.sequence(
             self.keyword("PRIMARY"),
