@@ -101,9 +101,15 @@ class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
     table: Table = None
     columns: List[ColumnDef] = Field(default_factory=list)
+    condition_clauses: List[str] = Field(default_factory=list)
 
     def sql(self) -> str:
-        sql = f'CREATE TABLE {self.table.name} (\n'
+        sql = 'CREATE TABLE '
+        if self.condition_clauses:
+            conditions = ' '.join(self.condition_clauses)
+            sql += f'{conditions} '
+            
+        sql += f'{self.table.name} (\n'
         column_str = ",\n".join([' ' + col.sql() for col in self.columns])
         sql += column_str + "\n);"
         return sql

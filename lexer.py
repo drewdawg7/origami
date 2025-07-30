@@ -21,7 +21,9 @@ KEYWORDS = [
     'LITERAL',
     'NOT',
     'NULL',
-    'VALUES'
+    'VALUES',
+    'IF',
+    'EXISTS'
 ]
 
 DATATYPE = [

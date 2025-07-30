@@ -11,17 +11,10 @@ create_table = open(f'{test_scripts_path}create_table.sql')
 TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
-UPDATE users
-SET name = "Drew"
-WHERE id=1;
-"""
-TEST_SQL4 = create_table.read()
-TEST_SQL5="""
-ALTER TABLE users
-ADD COLUMN test INT NOT NULL PRIMARY KEY,
-ADD COLUMN testTwo VARCHAR(64),
-DROP COLUMN testThree;
-"""
+CREATE TABLE IF NOT EXISTS users (
+  id INT PRIMARY KEY NOT NULL,
+  name VARCHAR(64)
+);"""
 
 
 def print_tokens():
@@ -40,9 +33,9 @@ def print_ast():
 
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL)
+  val = prs.produce_ast(TEST_SQL3)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL)
+  print(TEST_SQL3)
   print("\nPARSED AST TO SQL\n")
   print("\nFOLDING ------->\n")
   print(val.fold().sql())

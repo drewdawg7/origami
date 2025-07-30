@@ -279,6 +279,16 @@ class Parser:
         create_parser = self.sequence(
             self.keyword("CREATE"),
             self.keyword("TABLE"),
+            self.optional(
+                self.label(
+                    "conditional_clause",
+                    self.sequence(
+                        self.keyword("IF"),
+                        self.keyword("NOT"),
+                        self.keyword("EXISTS")
+                    )
+                )
+            ),
             self.label("table_name", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
             self.label("columns", self.many(
@@ -298,7 +308,8 @@ class Parser:
         
         table = Table(name=table_name)
         create_stmt = CreateTable(table=table)
-        
+        if "conditional_clause" in parse_result.value and parse_result.value["conditional_clause"] is not None:
+            create_stmt.condition_clauses = parse_result.value["conditional_clause"]
         for column in columns_data:
             column_name = column["column_name"]
             datatype_token = column["datatype"]
