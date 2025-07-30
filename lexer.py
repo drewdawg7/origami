@@ -23,7 +23,8 @@ KEYWORDS = [
     'NULL',
     'VALUES',
     'IF',
-    'EXISTS'
+    'EXISTS',
+    'AUTO_INCREMENT'
 ]
 
 DATATYPE = [
@@ -114,9 +115,9 @@ def tokenize(sourceCode: str) -> list[Token]:
                         num += src.pop(0)
                     token = Token(value=num, type=TokenType.LITERAL)
                     num = ""
-                elif (isalpha(src[0])):
+                elif (isalpha(src[0]) or src[0] == '_'):
                     string = ""
-                    while (len(src) > 0 and isalpha(src[0]) and src[0] != " "):
+                    while (len(src) > 0 and (isalpha(src[0]) or src[0] == '_') and src[0] != " "):
                         string += src.pop(0)
                         token = create_token_from_string(string)
                 else:

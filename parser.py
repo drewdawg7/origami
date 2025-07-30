@@ -330,12 +330,15 @@ class Parser:
             
             if "constraints" in column and column["constraints"] is not None:
                 processed_constraints = []
+                print(f"Raw constraints: {column['constraints']}")
                 for constraint in column["constraints"]:
+                    print(f"Processing constraint: {constraint} (type: {type(constraint)})")
                     if isinstance(constraint, list):
                         processed_constraints.append(" ".join(constraint))
                     else:
                         processed_constraints.append(constraint)
                 
+                print(f"Processed constraints: {processed_constraints}")
                 column_def.constraints = processed_constraints
             
             create_stmt.columns.append(column_def)
@@ -386,23 +389,19 @@ class Parser:
             if action == "ADD":
                 datatype_token = op["datatype"]
                 
-                # Process size specification if present
                 size_spec = None
                 if "size_spec" in op and op["size_spec"] is not None:
                     size_spec = op["size_spec"][1]  # Get the number part
                 
-                # Build datatype string
                 datatype_str = datatype_token.value
                 if size_spec:
                     datatype_str += f"({size_spec})"
                     
-                # Create column definition
                 column = ColumnDef(
                     name=column_name,
                     datatype=datatype_str
                 )
                 
-                # Process constraints if present
                 if "constraints" in op and op["constraints"] is not None:
                     processed_constraints = []
                     for constraint in op["constraints"]:
@@ -436,7 +435,7 @@ class Parser:
                         self.token_type(TokenType.RIGHT_PAREN)
                     ))
                 ),
-                self.optional(self.label("constraints", self.many(self.parse_constraint())))
+                self.optional(self.label("constraints", self.many(self.constraint())))
         )
     def optional(self, parser):
         def parser_fn():
@@ -454,11 +453,7 @@ class Parser:
                     return result
             return ParseResult()
         return parser_fn
-    def parse_not_null(self):
-        return self.sequence(
-            self.keyword("NOT"),
-            self.keyword("NULL")
-        )
+
 
     def label(self, name: str, parser: Callable[[], ParseResult]) -> Callable[[], ParseResult]:
         def _p():
@@ -467,24 +462,34 @@ class Parser:
                 return pr
             return ParseResult(value={name: pr.value}, is_optional=pr.is_optional)
         return _p
-    def parse_primary_key(self):
+
+    def constraint(self):
+        return self.choice(
+            self.not_null(),
+            self.primary_key(),
+            self.auto_increment()
+        )
+    
+    def not_null(self):
+        return self.sequence(
+            self.keyword("NOT"),
+            self.keyword("NULL")
+        )
+    
+    def primary_key(self):
         return self.sequence(
             self.keyword("PRIMARY"),
             self.keyword("KEY")
         )
-    def parse_constraint(self):
-        return self.choice(
-            self.parse_not_null(),
-            self.parse_primary_key()
-        )
+    def auto_increment(self):
+        return self.keyword("AUTO_INCREMENT")
+    
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     
     def is_datatype(self) -> bool:
         return self.curr_type() == TokenType.DATATYPE
     
-    def is_where(self) -> bool:
-        return self.curr_type() == TokenType.KEYWORD and self.curr_value() == "WHERE"
     
     def is_literal(self) -> bool:
         return self.curr_type() == TokenType.LITERAL
@@ -495,20 +500,9 @@ class Parser:
     def is_identifier(self) -> bool:
         return self.curr_type() == TokenType.IDENTIFIER
     
-    def is_semicolon(self) -> bool:
-        return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ';'
     
     def is_delimiter(self) -> bool:
         return self.curr_type() == TokenType.DELIMITER
-    
-    def is_comma(self) -> bool:
-        return self.curr_type() == TokenType.DELIMITER and self.curr_value() == ','
-    
-    def is_left_paren(self) -> bool: 
-        return self.curr_type() == TokenType.LEFT_PAREN
-    
-    def is_right_paren(self) -> bool:
-        return self.curr_type() == TokenType.RIGHT_PAREN
     
     def curr_value(self) -> str:
         return self.tokens[0].value

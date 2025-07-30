@@ -12,7 +12,7 @@ TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
 CREATE TABLE IF NOT EXISTS users (
-  id INT PRIMARY KEY NOT NULL,
+  id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
   name VARCHAR(64)
 );"""
 
