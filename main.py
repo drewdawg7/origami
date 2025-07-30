@@ -38,19 +38,14 @@ def print_ast():
   print("===============================")
   print(val)
 
-  # folded_ast = val.fold_alter_statements()
-  # print("\nFolded SQL:")
-  # print(folded_ast.sql())
-
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL2)
+  val = prs.produce_ast(TEST_SQL)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL2)
+  print(TEST_SQL)
   print("\nPARSED AST TO SQL\n")
-  print(val.sql())
-  # print("\nFOLDING ------->\n")
-  # print(val.fold().sql())
+  print("\nFOLDING ------->\n")
+  print(val.fold().sql())
 
 # print_tokens()
 # print_ast()

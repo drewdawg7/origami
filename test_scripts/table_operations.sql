@@ -7,7 +7,7 @@ CREATE TABLE users (
 CREATE TABLE position (
   id INT PRIMARY KEY NOT NULL,
   title VARCHAR(64)
-)
+);
 
 ALTER TABLE users
 ADD COLUMN email VARCHAR(64) NOT NULL,

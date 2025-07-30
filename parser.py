@@ -191,14 +191,13 @@ class Parser:
             for p in parsers:
                 pr = p()
                 if pr.value is None and not pr.is_optional:
-                    return ParseResult()                # fail immediately
+                    return ParseResult()               
                 if pr.value is None:
-                    continue                            # skip pure-optional
+                    continue                           
                 if isinstance(pr.value, dict):
-                    merged.update(pr.value)            # pull in named pieces
+                    merged.update(pr.value)            
                 else:
-                    ordered.append(pr.value)           # keep positional ones
-            # if any labels appeared, return dict; else return list
+                    ordered.append(pr.value)           
             return ParseResult(value=merged if merged else ordered)
         return parser
     
@@ -206,7 +205,6 @@ class Parser:
         def parser_fn():
             results = []
             while True:
-                # Try to parse a separator first if we have results already
                 if len(results) > 0 and separator is not None:
                     sep_result = separator()
                     if sep_result.value is None:
@@ -284,20 +282,7 @@ class Parser:
             self.label("table_name", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
             self.label("columns", self.many(
-                self.sequence(
-                    self.label("column_name", self.identifier()),
-                    self.label("datatype", self.datatype()),
-                    self.optional(
-                        self.label("size_spec", self.sequence(
-                            self.token_type(TokenType.LEFT_PAREN),
-                            self.literal(),
-                            self.token_type(TokenType.RIGHT_PAREN)
-                        ))
-                    ),
-                    self.optional(
-                        self.label("constraints", self.many(self.parse_constraint()))
-                    )
-                ),
+                self.column(),
                 self.delimiter(",")
             )),
             self.token_type(TokenType.RIGHT_PAREN),
@@ -306,9 +291,8 @@ class Parser:
         
         parse_result = create_parser()
         if parse_result.value is None:
-            return None
+            raise Exception("Error while parsing create statement.")
         
-        # Use labeled values from the parse result
         table_name = parse_result.value["table_name"]
         columns_data = parse_result.value["columns"]
         
@@ -319,23 +303,18 @@ class Parser:
             column_name = column["column_name"]
             datatype_token = column["datatype"]
             
-            # Process size specification if present
-            size_spec = None
             if "size_spec" in column and column["size_spec"] is not None:
-                size_spec = column["size_spec"][1]  # Get the number part
+                size_spec = column["size_spec"][1] 
             
-            # Build datatype string
             datatype_str = datatype_token.value
             if size_spec:
                 datatype_str += f"({size_spec})"
                 
-            # Create column definition
             column_def = ColumnDef(
                 name=column_name,
                 datatype=datatype_str
             )
             
-            # Process constraints if present
             if "constraints" in column and column["constraints"] is not None:
                 processed_constraints = []
                 for constraint in column["constraints"]:
@@ -361,18 +340,7 @@ class Parser:
                     self.sequence(
                         self.label("action", self.keyword("ADD")),
                         self.keyword("COLUMN"),
-                        self.label("column_name", self.identifier()),
-                        self.label("datatype", self.datatype()),
-                        self.optional(
-                            self.label("size_spec", self.sequence(
-                                self.token_type(TokenType.LEFT_PAREN),
-                                self.literal(),
-                                self.token_type(TokenType.RIGHT_PAREN)
-                            ))
-                        ),
-                        self.optional(
-                            self.label("constraints", self.many(self.parse_constraint()))
-                        )
+                        self.column()
                     ),
                     self.sequence(
                         self.label("action", self.keyword("DROP")),
@@ -444,6 +412,19 @@ class Parser:
         
         return alter_stmt
 
+    def column(self):
+        return self.sequence(
+            self.label("column_name", self.identifier()),
+                self.label("datatype", self.datatype()),
+                self.optional(
+                    self.label("size_spec", self.sequence(
+                        self.token_type(TokenType.LEFT_PAREN),
+                        self.literal(),
+                        self.token_type(TokenType.RIGHT_PAREN)
+                    ))
+                ),
+                self.optional(self.label("constraints", self.many(self.parse_constraint())))
+        )
     def optional(self, parser):
         def parser_fn():
             result = parser()
