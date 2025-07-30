@@ -4,13 +4,12 @@ import os
 # Get the absolute path to the project root
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Insert at position 0 to take precedence over any other modules
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
 from parser import Parser
-from abstract_syntax_tree import ColumnDef, CreateTable, Insert, AlterTable
+from abstract_syntax_tree import ColumnDef, CreateTable, Insert, AlterTable, Update
 
 
 
@@ -22,6 +21,8 @@ insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 sql2 = insert_statements.read()
 table_operations = open(f'{test_scripts_path}table_operations.sql')
 sql3 = table_operations.read()
+update_statements = open(f'{test_scripts_path}update_statements.sql')
+sql4 = update_statements.read()
 
 def assert_column(column, expected_name, expected_datatype, expected_constraints):
     assert column.name == expected_name
@@ -83,14 +84,11 @@ def test_insert_statements():
     )
 
 
-# ...existing code...
-
 def assert_alter_table(alter_table_statement: AlterTable, expected_table_name: str, 
                       expected_add_columns: list[ColumnDef] = None, 
                       expected_drop_columns: list[str] = None):
     assert alter_table_statement.table.name == expected_table_name
     
-    # Get add and drop operations from operations list
     add_operations = [op for op in alter_table_statement.operations if op.action == "ADD"]
     drop_operations = [op for op in alter_table_statement.operations if op.action == "DROP"]
     
@@ -138,4 +136,37 @@ def test_table_operations():
         expected_table_name='users',
         expected_add_columns=expected_add_columns,
         expected_drop_columns=expected_drop_columns
+    )
+
+def assert_update(update_statement: Update, expected_table_name: str, 
+                 expected_columns: list[str], expected_values: list[str],
+                 expected_conditions: list[tuple[str, str, str]]):
+    assert update_statement.table_name == expected_table_name
+    
+    # Check columns and values match
+    assert len(update_statement.columns) == len(expected_columns)
+    assert update_statement.columns == expected_columns
+    
+    for i, value_literal in enumerate(update_statement.values):
+        assert value_literal.value == expected_values[i]
+    
+    # Check conditions
+    assert len(update_statement.conditions) == len(expected_conditions)
+    for i, condition in enumerate(update_statement.conditions):
+        exp_col, exp_op, exp_val = expected_conditions[i]
+        assert condition.column == exp_col
+        assert condition.operator == exp_op
+        assert condition.value.value == exp_val
+
+# Add this test function
+def test_update_statements():
+    parser = Parser()
+    ast = parser.produce_ast(sql4)
+    assert len(ast.body) == 1
+    assert_update(
+        update_statement=ast.body[0],
+        expected_table_name='users',
+        expected_columns=['name'],
+        expected_values=["'Drew'"],
+        expected_conditions=[('id', '=', '1')]
     )
