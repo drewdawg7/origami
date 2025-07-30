@@ -16,6 +16,12 @@ SET name = "Drew"
 WHERE id=1;
 """
 TEST_SQL4 = create_table.read()
+TEST_SQL5="""
+ALTER TABLE users
+ADD COLUMN test INT NOT NULL PRIMARY KEY,
+ADD COLUMN testTwo VARCHAR(64),
+DROP COLUMN testThree;
+"""
 
 
 def print_tokens():

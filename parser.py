@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 class ParseResult(BaseModel):
     value: Any = None
-    is_useful: bool = False
     is_optional: bool = False
 
 class Parser:
@@ -162,7 +161,6 @@ class Parser:
 
     def delimiter(self, expected_delimiter):
         def parser():
-            print(f'delimiter: {self.curr_token()}')
             if self.is_delimiter() and self.curr_value() == expected_delimiter:
                 result = self.curr_token()
                 self.next()
@@ -272,9 +270,6 @@ class Parser:
                 
 
     def parse_create_statement(self) -> Node:
-
-
-        #===========================================#
         create_parser = self.sequence(
             self.keyword("CREATE"),
             self.keyword("TABLE"),
@@ -284,160 +279,204 @@ class Parser:
                 self.sequence(
                     self.identifier(),
                     self.datatype(),
+                    self.optional(
+                        self.sequence(
+                            self.token_type(TokenType.LEFT_PAREN),
+                            self.literal(),
+                            self.token_type(TokenType.RIGHT_PAREN)
+                        )
+                    ),
+                    self.optional(self.many(self.parse_constraint()))
                 ),
                 self.delimiter(",")
             ),
             self.token_type(TokenType.RIGHT_PAREN),
             self.delimiter(";")
-
         )
+        
         parse_result = create_parser()
         if parse_result.value is None:
             return None
         
-        # Unpack values from the sequence parse result
         results = parse_result.value
         _, _, table_name, _, column_data_list, _, _ = results
         
-        # Create the table object
         table = Table(name=table_name)
         
-        # Create the create table statement
         create_stmt = CreateTable(table=table)
         
-        # Process column definitions
         for column_data in column_data_list:
-            column_name, datatype_token = column_data
+            column_name = column_data[0]
+            datatype_token = column_data[1]
+            
+            size_spec = None
+            constraints_list = None
+            
+            for i in range(2, len(column_data)):
+                item = column_data[i]
+                if isinstance(item, list) and len(item) == 3:
+                    size_spec = item[1]  # Get the number part
+                elif item is not None:
+                    constraints_list = item
+            
+            datatype_str = datatype_token.value
+            if size_spec:
+                datatype_str += f"({size_spec})"
+                
             column = ColumnDef(
                 name=column_name,
-                datatype=datatype_token.value
+                datatype=datatype_str
             )
+            
+            if constraints_list is not None:
+                processed_constraints = []
+                for constraint in constraints_list:
+                    if isinstance(constraint, list):
+                        processed_constraints.append(" ".join(constraint))
+                    else:
+                        processed_constraints.append(constraint)
+                
+                column.constraints = processed_constraints
+            
             create_stmt.columns.append(column)
         
         return create_stmt
-    
-    def parse_column_def(self):
-        # column = ColumnDef()
+        
+
+    def parse_alter_statement(self) -> Node:
 
 
-        # column.name = self.consume_identifier("column name")
-
-
-        # column.datatype = self.consume_datatype()
-
-        # if column.datatype == "VARCHAR" and self.is_left_paren():
-        #     self.next()
-
-        #     column.datatype += f'({self.consume_literal("for VARCHAR length")})'
-
-        #     self.consume_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
-
-        # while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
-        #     if self.consume_keyword_sequence("NOT", "NULL"):
-        #         column.constraints.append("NOT NULL")
-        #     elif self.consume_keyword_sequence("PRIMARY", "KEY"):
-        #         column.constraints.append("PRIMARY KEY")
-        #     else: 
-        #         raise Exception(f"Unexpected token in column definition: {self.curr_token()}")
-
-        #====================================
-        column_parser = self.sequence(
+        alter_parser = self.sequence(
+            self.keyword("ALTER"),
+            self.keyword("TABLE"),
             self.identifier(),
-            self.datatype(),
+
+            self.many(
+                self.choice(
+                    self.sequence(
+                        self.keyword("ADD"),
+                        self.keyword("COLUMN"),
+                        self.identifier(),
+                        self.datatype(),
+                        self.optional(
+                            self.sequence(
+                                self.token_type(TokenType.LEFT_PAREN),
+                                self.literal(),
+                                self.token_type(TokenType.RIGHT_PAREN)
+                            )
+                        ),
+                        self.optional(self.many(self.parse_constraint()))
+                    ),
+                    self.sequence(
+                        self.keyword("DROP"),
+                        self.keyword("COLUMN"),
+                        self.identifier()
+                    )
+                ),
+                self.delimiter(",")
+            ),
+            self.delimiter(";")
         )
 
-
-        return column
-    
-    def parse_alter_statement(self) -> Node:
-        # Current node is ALTER so pop
-        self.next()
-
-        self.consume_keyword("TABLE")
-
-        table_name = self.consume_identifier("table name")
+        parse_result = alter_parser()
+        if parse_result.value is None:
+            return None
+        
+        results = parse_result.value
+        
+        _, _, table_name, column_operations, _ = results
+        
         table = Table(name=table_name)
+        
         alter_stmt = AlterTable(table=table)
-        alter_stmt.operations = []
-
-        while self.not_eof() and not self.is_semicolon():
-            if self.is_keyword():
-                if self.curr_value() == 'ADD':
-                    self.next()
-                    self.consume_keyword("COLUMN")
-                    column = self.parse_column_def()
-                    operation = AlterOperation(action="ADD", column=column)
-                    alter_stmt.operations.append(operation)
-
-                elif self.curr_value() == 'DROP':
-                    self.next()
-                    self.consume_keyword("COLUMN")
-         
-                    column_name = self.consume_identifier("column name")
-                    column = ColumnDef(name=column_name)
-                    operation = AlterOperation(action="DROP", column=column)
-                    alter_stmt.operations.append(operation)
-                else:
-                    self.next()
-            if self.is_comma():
-                self.next()
-            elif not self.is_semicolon():
-                raise Exception("Expected comma or semicolon after alter operation")
+        
+        for op_data in column_operations:
+            action = op_data[0]
             
-        self.consume_delimiter(";")
-
+            if action == "ADD":
+                # Get base information
+                _, _, column_name, datatype_token = op_data[:4]
+                
+                # Check for VARCHAR size specification or constraints
+                size_spec = None
+                constraints_list = None
+                
+                # Look through remaining items for size and constraints
+                for i in range(4, len(op_data)):
+                    item = op_data[i]
+                    if isinstance(item, list) and len(item) == 3:
+                        # This is likely the size specification: (255)
+                        size_spec = item[1]  # Get the number part
+                    elif item is not None:
+                        # This is likely the constraints list
+                        constraints_list = item
+                
+                # Create the column with the proper datatype
+                datatype_str = datatype_token.value
+                if size_spec:
+                    datatype_str += f"({size_spec})"
+                    
+                column = ColumnDef(
+                    name=column_name,
+                    datatype=datatype_str
+                )
+                
+                # Process constraints if present
+                if constraints_list is not None:
+                    processed_constraints = []
+                    for constraint in constraints_list:
+                        if isinstance(constraint, list):
+                            processed_constraints.append(" ".join(constraint))
+                        else:
+                            processed_constraints.append(constraint)
+                    
+                    column.constraints = processed_constraints
+            
+            elif action == "DROP":
+                _, _, column_name = op_data
+                
+                column = ColumnDef(
+                    name=column_name,
+                    datatype=""  # No datatype for DROP operations
+                )
+            
+            operation = AlterOperation(action=action, column=column)
+            alter_stmt.operations.append(operation)
+        
         return alter_stmt
 
-    def consume_keyword(self, keyword:str ) -> None:
-        if not self.is_keyword() or self.curr_value() != keyword:
-            raise Exception(f"Expected {keyword} keyword, got: {self.curr_token()}")
-        self.next()
-
-    def consume_delimiter(self, delimiter:str, context: str="" ) -> str:
-        if not self.is_delimiter() or self.curr_value() != delimiter:
-            raise Exception(f"Expected delimiter{' ' + context if context else ''}, got: {self.curr_token()}")
-        return self.next().value
-
-        
-    def consume_literal(self, context: str = "") -> str:
-        if not self.is_literal():
-            raise Exception(f"Expected literal{' ' + context if context else ''}, got: {self.curr_token()}")
-        return self.next().value
-
-    def consume_identifier(self, context: str = "") -> str:
-        if not self.is_identifier():
-            raise Exception(f"Expected identifier{' ' + context if context else ''}, got: {self.curr_token()}")
-        return self.next().value
+    def optional(self, parser):
+        def parser_fn():
+            result = parser()
+            if result.value is None:
+                return ParseResult(value=None, is_optional=True)
+            return result
+        return parser_fn
     
-    def consume_datatype(self, context: str = "") -> str:
-        if not self.is_datatype():
-            raise Exception(f"Expected datatype{' ' + context if context else ''}, got: {self.curr_token()}")
-        return self.next().value
-    
-    def consume_token_type(self,  token_type: TokenType, context: str = "") -> Token:
-        if self.curr_type() != token_type:
-            raise Exception(f"Expected {token_type.name}{' ' + context if context else ''}, got: {self.curr_token()}")
-        return self.next()
+    def choice(self, *parsers):
+        def parser_fn():
+            for p in parsers:
+                result = p()
+                if result.value is not None:
+                    return result
+            return ParseResult()
+        return parser_fn
+    def parse_not_null(self):
+        return self.sequence(
+            self.keyword("NOT"),
+            self.keyword("NULL")
+        )
 
-    def consume_keyword_sequence(self, *keywords) -> bool:
-        if self.match_keyword_sequence(*keywords):
-            for _ in keywords:
-                self.next()
-            return True
-        return False
-
-    def match_keyword_sequence(self, *keywords) -> bool:
-        if len(keywords) > len(self.tokens):
-            return False
-        for i, keyword in enumerate(keywords):
-            if i >= len(self.tokens) or self.tokens[i].type != TokenType.KEYWORD or self.tokens[i].value != keyword:
-                return False
-        return True
-
-
-    def check_keyword(self, keyword: str) -> bool:
-        return self.is_keyword() and self.curr_value() == keyword
-    
+    def parse_primary_key(self):
+        return self.sequence(
+            self.keyword("PRIMARY"),
+            self.keyword("KEY")
+        )
+    def parse_constraint(self):
+        return self.choice(
+            self.parse_not_null(),
+            self.parse_primary_key()
+        )
     def is_keyword(self) -> bool:
         return self.curr_type() == TokenType.KEYWORD
     

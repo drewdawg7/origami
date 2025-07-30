@@ -44,7 +44,6 @@ def test_create_table():
         Token(type=TokenType.LEFT_PAREN, value="("),
         Token(type=TokenType.LITERAL, value="64"),
         Token(type=TokenType.RIGHT_PAREN, value=")"),
-        Token(type=TokenType.DELIMITER, value=","),
         Token(type=TokenType.RIGHT_PAREN, value=")"),
         Token(type=TokenType.DELIMITER, value=";"),
         Token(type=TokenType.EOF, value="End of File"),

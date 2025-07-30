@@ -114,9 +114,14 @@ class AlterOperation(Node):
     column: ColumnDef
 
     def sql(self) -> str:
-        if self.column.constraints:
-            return f'{self.action} COLUMN {self.column.name} {", ".join(self.column.constraints)}'
-        return f'{self.action} COLUMN {self.column.name}'
+        if self.action == "ADD":
+            if self.column.constraints:
+                return f'{self.action} COLUMN {self.column.name} {self.column.datatype} {" ".join(self.column.constraints)}'
+            return f'{self.action} COLUMN {self.column.name} {self.column.datatype}'
+        elif self.action == "DROP":
+            return f'{self.action} COLUMN {self.column.name}'
+        else:
+            return f'{self.action} COLUMN {self.column.name}'
 
 class AlterTable(Node):
     type: Literal[NodeType.ALTER_TABLE] = NodeType.ALTER_TABLE
