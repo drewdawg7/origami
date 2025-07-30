@@ -6,6 +6,7 @@ test_scripts_path = './test_scripts/'
 
 table_operations = open(f'{test_scripts_path}table_operations.sql')
 insert_statements = open(f'{test_scripts_path}insert_statements.sql')
+create_table = open(f'{test_scripts_path}create_table.sql')
 
 TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
@@ -14,6 +15,7 @@ UPDATE users
 SET name = "Drew"
 WHERE id=1;
 """
+TEST_SQL4 = create_table.read()
 
 
 def print_tokens():
@@ -36,9 +38,9 @@ def print_ast():
 
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL3)
+  val = prs.produce_ast(TEST_SQL4)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL3)
+  print(TEST_SQL4)
   print("\nPARSED AST TO SQL\n")
   print(val.sql())
   # print("\nFOLDING ------->\n")

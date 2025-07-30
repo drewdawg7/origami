@@ -1,4 +1,4 @@
 CREATE TABLE users (
-  id INT PRIMARY KEY NOT NULL,
-  name VARCHAR(64),
+  id INT,
+  val INT
 );

@@ -169,6 +169,15 @@ class Parser:
                 return ParseResult(value=result)
             return ParseResult()
         return parser
+    
+    def datatype(self):
+        def parser():
+            if self.is_datatype():
+                result = self.curr_token()
+                self.next()
+                return ParseResult(value=result)
+            return ParseResult()
+        return parser
 
     def sequence(self, *parsers):
     
@@ -263,53 +272,80 @@ class Parser:
                 
 
     def parse_create_statement(self) -> Node:
-        # If we're here we already know this is a CREATE token
-        self.next()
-
-        self.consume_keyword("TABLE")
 
 
-        table_name = self.consume_identifier("table name")
+        #===========================================#
+        create_parser = self.sequence(
+            self.keyword("CREATE"),
+            self.keyword("TABLE"),
+            self.identifier(),
+            self.token_type(TokenType.LEFT_PAREN),
+            self.many(
+                self.sequence(
+                    self.identifier(),
+                    self.datatype(),
+                ),
+                self.delimiter(",")
+            ),
+            self.token_type(TokenType.RIGHT_PAREN),
+            self.delimiter(";")
+
+        )
+        parse_result = create_parser()
+        if parse_result.value is None:
+            return None
+        
+        # Unpack values from the sequence parse result
+        results = parse_result.value
+        _, _, table_name, _, column_data_list, _, _ = results
+        
+        # Create the table object
         table = Table(name=table_name)
-
+        
+        # Create the create table statement
         create_stmt = CreateTable(table=table)
-
- 
-
-        self.consume_token_type(TokenType.LEFT_PAREN, "after table name")
-
-        while (self.not_eof() and not self.is_right_paren()):
-            column = self.parse_column_def()
+        
+        # Process column definitions
+        for column_data in column_data_list:
+            column_name, datatype_token = column_data
+            column = ColumnDef(
+                name=column_name,
+                datatype=datatype_token.value
+            )
             create_stmt.columns.append(column)
-            self.consume_delimiter(",")
-
-        self.consume_token_type(TokenType.RIGHT_PAREN)
-        self.consume_delimiter(";")
+        
         return create_stmt
     
-    def parse_column_def(self) -> ColumnDef:
-        column = ColumnDef()
+    def parse_column_def(self):
+        # column = ColumnDef()
 
 
-        column.name = self.consume_identifier("column name")
+        # column.name = self.consume_identifier("column name")
 
 
-        column.datatype = self.consume_datatype()
+        # column.datatype = self.consume_datatype()
 
-        if column.datatype == "VARCHAR" and self.is_left_paren():
-            self.next()
+        # if column.datatype == "VARCHAR" and self.is_left_paren():
+        #     self.next()
 
-            column.datatype += f'({self.consume_literal("for VARCHAR length")})'
+        #     column.datatype += f'({self.consume_literal("for VARCHAR length")})'
 
-            self.consume_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
+        #     self.consume_token_type(TokenType.RIGHT_PAREN, "after VARCHAR length")
 
-        while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
-            if self.consume_keyword_sequence("NOT", "NULL"):
-                column.constraints.append("NOT NULL")
-            elif self.consume_keyword_sequence("PRIMARY", "KEY"):
-                column.constraints.append("PRIMARY KEY")
-            else: 
-                raise Exception(f"Unexpected token in column definition: {self.curr_token()}")
+        # while (self.not_eof() and not self.is_delimiter() and not self.is_right_paren()):
+        #     if self.consume_keyword_sequence("NOT", "NULL"):
+        #         column.constraints.append("NOT NULL")
+        #     elif self.consume_keyword_sequence("PRIMARY", "KEY"):
+        #         column.constraints.append("PRIMARY KEY")
+        #     else: 
+        #         raise Exception(f"Unexpected token in column definition: {self.curr_token()}")
+
+        #====================================
+        column_parser = self.sequence(
+            self.identifier(),
+            self.datatype(),
+        )
+
 
         return column
     
