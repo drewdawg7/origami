@@ -11,9 +11,9 @@ create_table = open(f'{test_scripts_path}create_table.sql')
 TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
-CREATE TABLE IF NOT EXISTS users (
-  id INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
-  name VARCHAR(64)
+CREATE TABLE users (
+  id INT,
+  CONSTRAINT test FOREIGN KEY (name) REFERENCES otherTable(name)
 );"""
 
 

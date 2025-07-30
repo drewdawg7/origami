@@ -24,7 +24,10 @@ KEYWORDS = [
     'VALUES',
     'IF',
     'EXISTS',
-    'AUTO_INCREMENT'
+    'AUTO_INCREMENT',
+    'CONSTRAINT',
+    'FOREIGN',
+    'REFERENCES'
 ]
 
 DATATYPE = [

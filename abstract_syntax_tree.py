@@ -16,7 +16,7 @@ class NodeType(str, Enum):
     IDENTIFIER = "identifier"
     ALTER_OPERATION = "alter_operation",
     LITERAL = "literal"
-    UPDATE_CONDITION = "update_condition"
+    UPDATE_CONDITION = "update_condition",
 
 
 
@@ -96,12 +96,23 @@ class Update(Node):
         
         return f"{sql};"
 
+class ForeignKeyConstraint(Node):
+    type: Literal[NodeType.CONSTRAINT] = NodeType.CONSTRAINT
+    name: str | None
+    column_name: str
+    referenced_table: str
+    referenced_column: str
+
+    def sql(self) -> str:
+        return f"CONSTRAINT {self.name} FOREIGN KEY ({self.column_name}) REFERENCES {self.referenced_table} ({self.referenced_column})"
 
 class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
     table: Table = None
     columns: List[ColumnDef] = Field(default_factory=list)
     condition_clauses: List[str] = Field(default_factory=list)
+    table_constraints: List[ForeignKeyConstraint] = Field(default_factory=list)
+
 
     def sql(self) -> str:
         sql = 'CREATE TABLE '
@@ -111,7 +122,12 @@ class CreateTable(Node):
             
         sql += f'{self.table.name} (\n'
         column_str = ",\n".join([' ' + col.sql() for col in self.columns])
-        sql += column_str + "\n);"
+        sql += column_str
+        if self.table_constraints:
+            sql += ",\n"
+            constraint_str = ",\n".join([' ' + constraint.sql() for constraint in self.table_constraints])
+            sql += constraint_str
+        sql += "\n);"
         return sql
 
 class AlterOperation(Node):

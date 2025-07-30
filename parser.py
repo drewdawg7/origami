@@ -1,4 +1,4 @@
-from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable
+from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable, ForeignKeyConstraint
 from lexer import TokenType, Token, tokenize
 from typing import Any, Callable
 from pydantic import BaseModel
@@ -275,6 +275,22 @@ class Parser:
         return parser
                 
 
+    def foreign_key(self):
+        return self.sequence(
+            self.keyword("CONSTRAINT"),
+            self.identifier(),
+            self.keyword("FOREIGN"),
+            self.keyword("KEY"),
+            self.token_type(TokenType.LEFT_PAREN),
+            self.identifier(),
+            self.token_type(TokenType.RIGHT_PAREN),
+            self.keyword("REFERENCES"),
+            self.identifier(),
+            self.token_type(TokenType.LEFT_PAREN),
+            self.identifier(),
+            self.token_type(TokenType.RIGHT_PAREN)
+        )
+
     def parse_create_statement(self) -> Node:
         create_parser = self.sequence(
             self.keyword("CREATE"),
@@ -295,6 +311,9 @@ class Parser:
                 self.column(),
                 self.delimiter(",")
             )),
+            self.optional(
+                self.label("constraints", self.many(self.foreign_key()))
+            ),
             self.token_type(TokenType.RIGHT_PAREN),
             self.delimiter(";")
         )
@@ -342,7 +361,24 @@ class Parser:
                 column_def.constraints = processed_constraints
             
             create_stmt.columns.append(column_def)
-        
+        if "constraints" in parse_result.value and parse_result.value["constraints"] is not None:
+            for constraint in parse_result.value["constraints"]:
+                # Extract the needed components from the constraint sequence
+                constraint_name = constraint[1]  # Second element is the identifier after CONSTRAINT
+                column_name = constraint[5]      # Column name in parentheses after FOREIGN KEY
+                ref_table = constraint[8]        # Referenced table name after REFERENCES
+                ref_column = constraint[10]      # Referenced column name in parentheses
+                
+                # Create the foreign key constraint
+                fk_constraint = ForeignKeyConstraint(
+                    name=constraint_name,
+                    column_name=column_name,
+                    referenced_table=ref_table,
+                    referenced_column=ref_column
+                )
+                
+                # Add it to the table constraints
+                create_stmt.table_constraints.append(fk_constraint)
         return create_stmt
         
 
