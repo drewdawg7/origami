@@ -10,7 +10,7 @@ if project_root not in sys.path:
 
 
 from parser import Parser
-from abstract_syntax_tree import ColumnDef, CreateTable, Insert
+from abstract_syntax_tree import ColumnDef, CreateTable, Insert, AlterTable
 
 
 
@@ -20,6 +20,8 @@ create_table = open(f'{test_scripts_path}create_table.sql')
 sql1 = create_table.read()
 insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 sql2 = insert_statements.read()
+table_operations = open(f'{test_scripts_path}table_operations.sql')
+sql3 = table_operations.read()
 
 def assert_column(column, expected_name, expected_datatype, expected_constraints):
     assert column.name == expected_name
@@ -78,4 +80,62 @@ def test_insert_statements():
          ["1", "'Drew'"],
          ["2", "'Ethan'"]
      ]
+    )
+
+
+# ...existing code...
+
+def assert_alter_table(alter_table_statement: AlterTable, expected_table_name: str, 
+                      expected_add_columns: list[ColumnDef] = None, 
+                      expected_drop_columns: list[str] = None):
+    assert alter_table_statement.table.name == expected_table_name
+    
+    # Get add and drop operations from operations list
+    add_operations = [op for op in alter_table_statement.operations if op.action == "ADD"]
+    drop_operations = [op for op in alter_table_statement.operations if op.action == "DROP"]
+    
+    if expected_add_columns:
+        assert len(add_operations) == len(expected_add_columns)
+        for i, op in enumerate(add_operations):
+            assert_column_full(op.column, expected_add_columns[i])
+    
+    if expected_drop_columns:
+        assert len(drop_operations) == len(expected_drop_columns)
+        for i, op in enumerate(drop_operations):
+            assert op.column.name == expected_drop_columns[i]
+
+def test_table_operations():
+    parser = Parser()
+    ast = parser.produce_ast(sql3)
+    
+    # Three statements: two CREATE TABLE and one ALTER TABLE
+    assert len(ast.body) == 3
+    
+    # Test first CREATE TABLE (users)
+    expected_users_columns = [
+        ColumnDef(name='id', datatype='INT', constraints=["PRIMARY KEY", "NOT NULL"]),
+        ColumnDef(name='name', datatype='VARCHAR(64)', constraints=[]),
+        ColumnDef(name='uselesscol', datatype='INT', constraints=[])
+    ]
+    assert_create_table(ast.body[0], 'users', expected_users_columns)
+    
+    # Test second CREATE TABLE (position)
+    expected_position_columns = [
+        ColumnDef(name='id', datatype='INT', constraints=["PRIMARY KEY", "NOT NULL"]),
+        ColumnDef(name='title', datatype='VARCHAR(64)', constraints=[])
+    ]
+    assert_create_table(ast.body[1], 'position', expected_position_columns)
+    
+    # Test ALTER TABLE statement
+    expected_add_columns = [
+        ColumnDef(name='email', datatype='VARCHAR(64)', constraints=["NOT NULL"]),
+        ColumnDef(name='age', datatype='INT', constraints=[])
+    ]
+    expected_drop_columns = ['uselesscol']
+    
+    assert_alter_table(
+        alter_table_statement=ast.body[2],
+        expected_table_name='users',
+        expected_add_columns=expected_add_columns,
+        expected_drop_columns=expected_drop_columns
     )

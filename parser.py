@@ -303,6 +303,8 @@ class Parser:
             column_name = column["column_name"]
             datatype_token = column["datatype"]
             
+            # Initialize size_spec with a default value
+            size_spec = None
             if "size_spec" in column and column["size_spec"] is not None:
                 size_spec = column["size_spec"][1] 
             
