@@ -96,6 +96,13 @@ class Update(Node):
         
         return f"{sql};"
 
+class PrimaryKeyConstraint(Node):
+    type: Literal[NodeType.CONSTRAINT] = NodeType.CONSTRAINT
+    column_name: str
+
+    def sql(self) -> str:
+        return f"PRIMARY KEY ({self.column_name})"
+
 class ForeignKeyConstraint(Node):
     type: Literal[NodeType.CONSTRAINT] = NodeType.CONSTRAINT
     name: str | None
@@ -111,7 +118,7 @@ class CreateTable(Node):
     table: Table = None
     columns: List[ColumnDef] = Field(default_factory=list)
     condition_clauses: List[str] = Field(default_factory=list)
-    table_constraints: List[ForeignKeyConstraint] = Field(default_factory=list)
+    table_constraints: List[ForeignKeyConstraint | PrimaryKeyConstraint] = Field(default_factory=list)
 
 
     def sql(self) -> str:

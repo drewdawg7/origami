@@ -1,4 +1,4 @@
-from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable, ForeignKeyConstraint
+from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable, ForeignKeyConstraint, PrimaryKeyConstraint
 from lexer import TokenType, Token, tokenize
 from typing import Any, Callable
 from pydantic import BaseModel
@@ -165,63 +165,77 @@ class Parser(BaseParser):
         if parse_result.value is None:
             raise Exception("Error while parsing create statement.")
         
+        # Debug print to see the structure
+        print(f"FULL PARSE RESULT: {parse_result.value}")
+        
         table_name = parse_result.value["table_name"]
-        columns_data = parse_result.value["columns"]
+        table_elements = parse_result.value["table_elements"]
         
         table = Table(name=table_name)
         create_stmt = CreateTable(table=table)
+        
         if "conditional_clause" in parse_result.value and parse_result.value["conditional_clause"] is not None:
             create_stmt.condition_clauses = parse_result.value["conditional_clause"]
-        for column in columns_data:
-            column_name = column["column_name"]
-            datatype_token = column["datatype"]
-            
-            # Initialize size_spec with a default value
-            size_spec = None
-            if "size_spec" in column and column["size_spec"] is not None:
-                size_spec = column["size_spec"][1] 
-            
-            datatype_str = datatype_token.value
-            if size_spec:
-                datatype_str += f"({size_spec})"
+        
+        # Process all table elements
+        for element in table_elements:
+            if "column_name" in element:
+                # Process column
+                column_name = element["column_name"]
+                datatype_token = element["datatype"]
                 
-            column_def = ColumnDef(
-                name=column_name,
-                datatype=datatype_str
-            )
-            
-            if "constraints" in column and column["constraints"] is not None:
-                processed_constraints = []
-                print(f"Raw constraints: {column['constraints']}")
-                for constraint in column["constraints"]:
-                    print(f"Processing constraint: {constraint} (type: {type(constraint)})")
-                    if isinstance(constraint, list):
-                        processed_constraints.append(" ".join(constraint))
-                    else:
-                        processed_constraints.append(constraint)
+                # Initialize size_spec with a default value
+                size_spec = None
+                if "size_spec" in element and element["size_spec"] is not None:
+                    size_spec = element["size_spec"][1] 
                 
-                print(f"Processed constraints: {processed_constraints}")
-                column_def.constraints = processed_constraints
-            
-            create_stmt.columns.append(column_def)
-        if "constraints" in parse_result.value and parse_result.value["constraints"] is not None:
-            for constraint in parse_result.value["constraints"]:
-                # Extract the needed components from the constraint sequence
-                constraint_name = constraint[1]  # Second element is the identifier after CONSTRAINT
-                column_name = constraint[5]      # Column name in parentheses after FOREIGN KEY
-                ref_table = constraint[8]        # Referenced table name after REFERENCES
-                ref_column = constraint[10]      # Referenced column name in parentheses
-                
-                # Create the foreign key constraint
-                fk_constraint = ForeignKeyConstraint(
-                    name=constraint_name,
-                    column_name=column_name,
-                    referenced_table=ref_table,
-                    referenced_column=ref_column
+                datatype_str = datatype_token.value
+                if size_spec:
+                    datatype_str += f"({size_spec})"
+                    
+                column_def = ColumnDef(
+                    name=column_name,
+                    datatype=datatype_str
                 )
                 
-                # Add it to the table constraints
-                create_stmt.table_constraints.append(fk_constraint)
+                if "constraints" in element and element["constraints"] is not None:
+                    processed_constraints = []
+                    for constraint in element["constraints"]:
+                        if isinstance(constraint, list):
+                            processed_constraints.append(" ".join(constraint))
+                        else:
+                            processed_constraints.append(constraint)
+                    
+                    column_def.constraints = processed_constraints
+                
+                create_stmt.columns.append(column_def)
+                
+            elif "primary_key_constraint" in element:
+                # Process primary key
+                pk_data = element["primary_key_constraint"]
+                if "pk_col" in pk_data:
+                    pk_col = pk_data["pk_col"]["identifier"]
+                    pk_constraint = PrimaryKeyConstraint(column_name=pk_col)
+                    create_stmt.table_constraints.append(pk_constraint)
+                    
+            elif "foreign_key_constraint" in element:
+                # Process foreign key
+                fk_data = element["foreign_key_constraint"]
+                if len(fk_data) >= 11:
+                    constraint_name = fk_data[1]
+                    column_name = fk_data[5]
+                    ref_table = fk_data[8]
+                    ref_column = fk_data[10]
+                    
+                    fk_constraint = ForeignKeyConstraint(
+                        name=constraint_name,
+                        column_name=column_name,
+                        referenced_table=ref_table,
+                        referenced_column=ref_column
+                    )
+                    
+                    create_stmt.table_constraints.append(fk_constraint)
+        
         return create_stmt
         
 
@@ -283,7 +297,6 @@ class Parser(BaseParser):
         
         return alter_stmt
 
-   
-    
 
-   
+
+

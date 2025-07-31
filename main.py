@@ -13,6 +13,7 @@ TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
 CREATE TABLE users (
   id INT,
+  PRIMARY KEY (id),
   CONSTRAINT test FOREIGN KEY (name) REFERENCES otherTable(name)
 );"""
 

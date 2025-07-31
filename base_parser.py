@@ -39,7 +39,6 @@ class BaseParser:
 
     def keyword(self, expected_word):
         def parser():
-            print(f'keyword: {self.curr_token()}')
             if self.is_keyword() and self.curr_value() == expected_word:
                 result = self.curr_value()
                 self.next()
@@ -49,7 +48,6 @@ class BaseParser:
 
     def identifier(self):
         def parser():
-            print(f'identifier: {self.curr_token()}')
             if self.is_identifier():
                 result = self.curr_value()
                 self.next()
@@ -59,7 +57,6 @@ class BaseParser:
     
     def literal(self):
         def parser():
-            print(f'literal: {self.curr_token()}')
             if self.is_literal():
                 result = self.curr_value()
                 self.next()
@@ -69,7 +66,6 @@ class BaseParser:
     
     def token_type(self, expected_type):
         def parser():
-            print(f'token_type: {self.curr_token()}')
             if self.curr_type() == expected_type:
                 result = self.curr_token()
                 self.next()
@@ -224,13 +220,14 @@ class BaseParser:
             ),
             self.label("table_name", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
-            self.label("columns", self.many(
-                self.column(),
-                self.delimiter(",")
-            )),
-            self.optional(
-                self.label("constraints", self.many(self.foreign_key()))
-            ),
+            self.label("table_elements", self.many(
+                    self.choice(
+                        self.column(),
+                        self.label("primary_key_constraint", self.primary_key(in_table_def=True)),
+                        self.label("foreign_key_constraint", self.foreign_key())
+                    ),
+                    self.delimiter(",")
+                )),
             self.token_type(TokenType.RIGHT_PAREN),
             self.delimiter(";")
         )
@@ -288,11 +285,25 @@ class BaseParser:
             self.keyword("NULL")
         )
     
-    def primary_key(self):
+    def primary_key(self, in_table_def=False):
+        if not in_table_def:
+            return self.sequence(
+                self.keyword("PRIMARY"),
+                self.keyword("KEY")
+            )
         return self.sequence(
             self.keyword("PRIMARY"),
-            self.keyword("KEY")
+            self.keyword("KEY"),
+            self.label("pk_col", self.wrapped_identifier())
+
+            
         )
     def auto_increment(self):
         return self.keyword("AUTO_INCREMENT")
     
+    def wrapped_identifier(self):
+        return self.sequence(
+            self.token_type(TokenType.LEFT_PAREN),
+            self.label("identifier", self.identifier()),
+            self.token_type(TokenType.RIGHT_PAREN)
+        )
