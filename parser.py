@@ -166,7 +166,6 @@ class Parser(BaseParser):
             raise Exception("Error while parsing create statement.")
         
         # Debug print to see the structure
-        print(f"FULL PARSE RESULT: {parse_result.value}")
         
         table_name = parse_result.value["table_name"]
         table_elements = parse_result.value["table_elements"]
@@ -174,44 +173,20 @@ class Parser(BaseParser):
         table = Table(name=table_name)
         create_stmt = CreateTable(table=table)
         
-        if "conditional_clause" in parse_result.value and parse_result.value["conditional_clause"] is not None:
+        if "conditional_clause" in parse_result.value:
             create_stmt.condition_clauses = parse_result.value["conditional_clause"]
         
-        # Process all table elements
         for element in table_elements:
             if "column_name" in element:
-                # Process column
                 column_name = element["column_name"]
                 datatype_token = element["datatype"]
+                size_spec = element.get("size_spec")
+                constraints = element.get("constraints")
                 
-                # Initialize size_spec with a default value
-                size_spec = None
-                if "size_spec" in element and element["size_spec"] is not None:
-                    size_spec = element["size_spec"][1] 
-                
-                datatype_str = datatype_token.value
-                if size_spec:
-                    datatype_str += f"({size_spec})"
-                    
-                column_def = ColumnDef(
-                    name=column_name,
-                    datatype=datatype_str
-                )
-                
-                if "constraints" in element and element["constraints"] is not None:
-                    processed_constraints = []
-                    for constraint in element["constraints"]:
-                        if isinstance(constraint, list):
-                            processed_constraints.append(" ".join(constraint))
-                        else:
-                            processed_constraints.append(constraint)
-                    
-                    column_def.constraints = processed_constraints
-                
+                column_def = self.create_column_def(column_name, datatype_token, size_spec, constraints)
                 create_stmt.columns.append(column_def)
                 
             elif "primary_key_constraint" in element:
-                # Process primary key
                 pk_data = element["primary_key_constraint"]
                 if "pk_col" in pk_data:
                     pk_col = pk_data["pk_col"]["identifier"]
@@ -256,41 +231,23 @@ class Parser(BaseParser):
         
         # Process each operation
         for op in operations:
-            action = op["action"]
-            column_name = op["column_name"]
-            
-            if action == "ADD":
-                datatype_token = op["datatype"]
+            # Check if this is an add_column or drop_column operation
+            if "add_column" in op:
+                action = op["add_column"]["action"]
+                column_name = op["add_column"]["column_name"]
+                datatype_token = op["add_column"]["datatype"]
+                size_spec = op["add_column"].get("size_spec")
+                constraints = op["add_column"].get("constraints")
                 
-                size_spec = None
-                if "size_spec" in op and op["size_spec"] is not None:
-                    size_spec = op["size_spec"][1]  # Get the number part
-                
-                datatype_str = datatype_token.value
-                if size_spec:
-                    datatype_str += f"({size_spec})"
-                    
+                column = self.create_column_def(column_name, datatype_token, size_spec, constraints)
+            elif "drop_column" in op:
+                action = op["drop_column"]["action"]
+                column_name = op["drop_column"]["column_name"]
                 column = ColumnDef(
                     name=column_name,
-                    datatype=datatype_str
+                    datatype=""  
                 )
-                
-                if "constraints" in op and op["constraints"] is not None:
-                    processed_constraints = []
-                    for constraint in op["constraints"]:
-                        if isinstance(constraint, list):
-                            processed_constraints.append(" ".join(constraint))
-                        else:
-                            processed_constraints.append(constraint)
-                    
-                    column.constraints = processed_constraints
-                    
-            elif action == "DROP":
-                column = ColumnDef(
-                    name=column_name,
-                    datatype=""  # No datatype for DROP operations
-                )
-            
+        
             # Create the operation and add it to the statement
             operation = AlterOperation(action=action, column=column)
             alter_stmt.operations.append(operation)
@@ -299,4 +256,26 @@ class Parser(BaseParser):
 
 
 
+    def process_constraints(self, constraints):
+        processed_constraints = []
+        for constraint in constraints:
+            if isinstance(constraint, list):
+                processed_constraints.append(" ".join(constraint))
+            else:
+                processed_constraints.append(constraint)
+        return processed_constraints
 
+    def create_column_def(self, column_name, datatype_token, size_spec=None, constraints=None):
+        datatype_str = datatype_token.value
+        if size_spec:
+            datatype_str += f"({size_spec})"
+            
+        column_def = ColumnDef(
+            name=column_name,
+            datatype=datatype_str
+        )
+        
+        if constraints:
+            column_def.constraints = self.process_constraints(constraints)
+        
+        return column_def

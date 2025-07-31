@@ -181,6 +181,22 @@ class BaseParser:
             self.label("cond_val", self.literal()),
             self.delimiter(";")
         )
+    def add_column(self):
+        return self.label("add_column",
+            self.sequence(
+                self.label("action", self.keyword("ADD")),
+                self.keyword("COLUMN"),
+                self.column()
+            ),
+        )
+    def drop_column(self):
+        return self.label("drop_column",
+            self.sequence(
+                self.label("action", self.keyword("DROP")),
+                self.keyword("COLUMN"),
+                self.label("column_name", self.identifier())
+            )    
+        )
     def alter_table(self):
         return self.sequence(
             self.keyword("ALTER"),
@@ -188,16 +204,8 @@ class BaseParser:
             self.label("table_name", self.identifier()),
             self.label("operations", self.many(
                 self.choice(
-                    self.sequence(
-                        self.label("action", self.keyword("ADD")),
-                        self.keyword("COLUMN"),
-                        self.column()
-                    ),
-                    self.sequence(
-                        self.label("action", self.keyword("DROP")),
-                        self.keyword("COLUMN"),
-                        self.label("column_name", self.identifier())
-                    )
+                    self.add_column(),
+                    self.drop_column()
                 ),
                 self.delimiter(",")
             )),
@@ -261,11 +269,11 @@ class BaseParser:
             self.label("column_name", self.identifier()),
             self.label("datatype", self.datatype()),
             self.optional(
-                self.label("size_spec", self.sequence(
+               self.sequence(
                     self.token_type(TokenType.LEFT_PAREN),
-                    self.literal(),
+                    self.label("size_spec", self.literal()),
                     self.token_type(TokenType.RIGHT_PAREN)
-                ))
+                )
             ),
             self.optional(self.label("constraints", self.many(self.constraint())))
         )
