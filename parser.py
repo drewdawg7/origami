@@ -2,12 +2,13 @@ from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterT
 from lexer import TokenType, Token, tokenize
 from typing import Any, Callable
 from pydantic import BaseModel
+from base_parser import BaseParser
 
 class ParseResult(BaseModel):
     value: Any = None
     is_optional: bool = False
 
-class Parser:
+class Parser(BaseParser):
     tokens: list[Token] = []
 
 
@@ -41,19 +42,7 @@ class Parser:
         return None
     
     def parse_update_statement(self) -> Node:
-        update_parser = self.sequence(
-            self.keyword("UPDATE"),
-            self.label("table", self.identifier()),
-            self.keyword("SET"),
-            self.label("col", self.identifier()),
-            self.label("op", self.equals()),
-            self.label("value", self.literal()),
-            self.keyword("WHERE"),
-            self.label("cond_col", self.identifier()),
-            self.label("cond_op", self.equals()),
-            self.label("cond_val", self.literal()),
-            self.delimiter(";")
-        )
+        update_parser = self.update()
         
         pr = update_parser()
         if pr.value is None:
@@ -83,14 +72,7 @@ class Parser:
     
         
     def parse_insert_statement(self) -> Node:
-        insert_parser = self.sequence(
-            self.keyword("INSERT"),
-            self.keyword("INTO"),
-            self.label("table_name", self.identifier()),
-            self.label("columns", self.parse_column_list()),
-            self.keyword("VALUES"),
-            self.label("values", self.parse_value_lists())
-        )
+        insert_parser = self.insert()
         pr = insert_parser()
         
         if pr.value is None:
@@ -116,108 +98,7 @@ class Parser:
         
         return Insert(table_name=table_name, columns=columns, values=value_literals)
 
-    def keyword(self, expected_word):
-        def parser():
-            print(f'keyword: {self.curr_token()}')
-            if self.is_keyword() and self.curr_value() == expected_word:
-                result = self.curr_value()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-
-    def identifier(self):
-        def parser():
-            print(f'identifier: {self.curr_token()}')
-            if self.is_identifier():
-                result = self.curr_value()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-    
-    def literal(self):
-        def parser():
-            print(f'literal: {self.curr_token()}')
-            if self.is_literal():
-                result = self.curr_value()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-    
-    def token_type(self, expected_type):
-        def parser():
-            print(f'token_type: {self.curr_token()}')
-            if self.curr_type() == expected_type:
-                result = self.curr_token()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-    
-    def equals(self):
-        def parser():
-            if self.is_equals():
-                result = self.curr_token()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-
-    def delimiter(self, expected_delimiter):
-        def parser():
-            if self.is_delimiter() and self.curr_value() == expected_delimiter:
-                result = self.curr_token()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-    
-    def datatype(self):
-        def parser():
-            if self.is_datatype():
-                result = self.curr_token()
-                self.next()
-                return ParseResult(value=result)
-            return ParseResult()
-        return parser
-
-    def sequence(self, *parsers):
-    
-        def parser():
-            merged: dict[str, Any] = {}
-            ordered: list[Any] = []
-            for p in parsers:
-                pr = p()
-                if pr.value is None and not pr.is_optional:
-                    return ParseResult()               
-                if pr.value is None:
-                    continue                           
-                if isinstance(pr.value, dict):
-                    merged.update(pr.value)            
-                else:
-                    ordered.append(pr.value)           
-            return ParseResult(value=merged if merged else ordered)
-        return parser
-    
-    def many(self, parser, separator=None):
-        def parser_fn():
-            results = []
-            while True:
-                if len(results) > 0 and separator is not None:
-                    sep_result = separator()
-                    if sep_result.value is None:
-                        break
-
-                result = parser()
-                if result.value is None:
-                    break
-                    
-                results.append(result.value)
-        
-            return ParseResult(value=results if results else None)
-        return parser_fn
+   
 
     def parse_column_list(self):
         def parser():
@@ -275,48 +156,10 @@ class Parser:
         return parser
                 
 
-    def foreign_key(self):
-        return self.sequence(
-            self.keyword("CONSTRAINT"),
-            self.identifier(),
-            self.keyword("FOREIGN"),
-            self.keyword("KEY"),
-            self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
-            self.token_type(TokenType.RIGHT_PAREN),
-            self.keyword("REFERENCES"),
-            self.identifier(),
-            self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
-            self.token_type(TokenType.RIGHT_PAREN)
-        )
+
 
     def parse_create_statement(self) -> Node:
-        create_parser = self.sequence(
-            self.keyword("CREATE"),
-            self.keyword("TABLE"),
-            self.optional(
-                self.label(
-                    "conditional_clause",
-                    self.sequence(
-                        self.keyword("IF"),
-                        self.keyword("NOT"),
-                        self.keyword("EXISTS")
-                    )
-                )
-            ),
-            self.label("table_name", self.identifier()),
-            self.token_type(TokenType.LEFT_PAREN),
-            self.label("columns", self.many(
-                self.column(),
-                self.delimiter(",")
-            )),
-            self.optional(
-                self.label("constraints", self.many(self.foreign_key()))
-            ),
-            self.token_type(TokenType.RIGHT_PAREN),
-            self.delimiter(";")
-        )
+        create_parser = self.create_table()
         
         parse_result = create_parser()
         if parse_result.value is None:
@@ -383,27 +226,7 @@ class Parser:
         
 
     def parse_alter_statement(self) -> Node:
-        alter_parser = self.sequence(
-            self.keyword("ALTER"),
-            self.keyword("TABLE"),
-            self.label("table_name", self.identifier()),
-            self.label("operations", self.many(
-                self.choice(
-                    self.sequence(
-                        self.label("action", self.keyword("ADD")),
-                        self.keyword("COLUMN"),
-                        self.column()
-                    ),
-                    self.sequence(
-                        self.label("action", self.keyword("DROP")),
-                        self.keyword("COLUMN"),
-                        self.label("column_name", self.identifier())
-                    )
-                ),
-                self.delimiter(",")
-            )),
-            self.delimiter(";")
-        )
+        alter_parser = self.alter_table()
 
         pr = alter_parser()
         if pr.value is None:
@@ -460,97 +283,7 @@ class Parser:
         
         return alter_stmt
 
-    def column(self):
-        return self.sequence(
-            self.label("column_name", self.identifier()),
-                self.label("datatype", self.datatype()),
-                self.optional(
-                    self.label("size_spec", self.sequence(
-                        self.token_type(TokenType.LEFT_PAREN),
-                        self.literal(),
-                        self.token_type(TokenType.RIGHT_PAREN)
-                    ))
-                ),
-                self.optional(self.label("constraints", self.many(self.constraint())))
-        )
-    def optional(self, parser):
-        def parser_fn():
-            result = parser()
-            if result.value is None:
-                return ParseResult(value=None, is_optional=True)
-            return result
-        return parser_fn
+   
     
-    def choice(self, *parsers):
-        def parser_fn():
-            for p in parsers:
-                result = p()
-                if result.value is not None:
-                    return result
-            return ParseResult()
-        return parser_fn
 
-
-    def label(self, name: str, parser: Callable[[], ParseResult]) -> Callable[[], ParseResult]:
-        def _p():
-            pr = parser()
-            if pr.value is None:
-                return pr
-            return ParseResult(value={name: pr.value}, is_optional=pr.is_optional)
-        return _p
-
-    def constraint(self):
-        return self.choice(
-            self.not_null(),
-            self.primary_key(),
-            self.auto_increment()
-        )
-    
-    def not_null(self):
-        return self.sequence(
-            self.keyword("NOT"),
-            self.keyword("NULL")
-        )
-    
-    def primary_key(self):
-        return self.sequence(
-            self.keyword("PRIMARY"),
-            self.keyword("KEY")
-        )
-    def auto_increment(self):
-        return self.keyword("AUTO_INCREMENT")
-    
-    def is_keyword(self) -> bool:
-        return self.curr_type() == TokenType.KEYWORD
-    
-    def is_datatype(self) -> bool:
-        return self.curr_type() == TokenType.DATATYPE
-    
-    
-    def is_literal(self) -> bool:
-        return self.curr_type() == TokenType.LITERAL
-    
-    def is_equals(self) -> bool:
-        return self.curr_type() == TokenType.EQUALS
-
-    def is_identifier(self) -> bool:
-        return self.curr_type() == TokenType.IDENTIFIER
-    
-    
-    def is_delimiter(self) -> bool:
-        return self.curr_type() == TokenType.DELIMITER
-    
-    def curr_value(self) -> str:
-        return self.tokens[0].value
-    
-    def curr_type(self) -> TokenType:
-        return self.tokens[0].type
-        
-    def curr_token(self) -> Token:
-        return self.tokens[0]
-
-    def next(self) -> Token:
-        return self.tokens.pop(0)
-
-
-
+   
