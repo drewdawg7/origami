@@ -1,5 +1,4 @@
-from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable, ForeignKeyConstraint
-from lexer import TokenType, Token, tokenize
+from lexer import TokenType, Token
 from typing import Any, Callable
 from pydantic import BaseModel
 

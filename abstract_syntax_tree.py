@@ -48,7 +48,7 @@ class UpdateCondition(Node):
     type: Literal[NodeType.UPDATE_CONDITION] = NodeType.UPDATE_CONDITION
     column: str = ""
     operator: str = ""
-    value: ValueLiteral = None
+    value: ValueLiteral
 
     def sql(self) -> str:
         return f"{self.column} {self.operator} {self.value.value}" 
@@ -115,7 +115,7 @@ class ForeignKeyConstraint(Node):
 
 class CreateTable(Node):
     type: Literal[NodeType.CREATE_TABLE] = NodeType.CREATE_TABLE
-    table: Table = None
+    table: Table
     columns: List[ColumnDef] = Field(default_factory=list)
     condition_clauses: List[str] = Field(default_factory=list)
     table_constraints: List[ForeignKeyConstraint | PrimaryKeyConstraint] = Field(default_factory=list)
@@ -154,7 +154,7 @@ class AlterOperation(Node):
 
 class AlterTable(Node):
     type: Literal[NodeType.ALTER_TABLE] = NodeType.ALTER_TABLE
-    table: Table = None
+    table: Table
     operations: List[AlterOperation] = Field(default_factory=list)
 
     def sql(self) -> str:

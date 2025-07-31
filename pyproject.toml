@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "pytest>=8.4.1",
     "sqlglot>=27.0.0",
+    "ty>=0.0.1a16",
 ]
 
 [tool.pytest.ini_options]

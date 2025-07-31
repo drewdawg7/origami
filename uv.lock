@@ -37,6 +37,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pytest" },
     { name = "sqlglot" },
+    { name = "ty" },
 ]
 
 [package.dev-dependencies]
@@ -50,6 +51,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "sqlglot", specifier = ">=27.0.0" },
+    { name = "ty", specifier = ">=0.0.1a16" },
 ]
 
 [package.metadata.requires-dev]

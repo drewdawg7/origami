@@ -1,6 +1,6 @@
 from abstract_syntax_tree import Node, Schema, ColumnDef, AlterOperation, AlterTable, Table, Insert, ValueLiteral, UpdateCondition, Update, CreateTable, ForeignKeyConstraint, PrimaryKeyConstraint
 from lexer import TokenType, Token, tokenize
-from typing import Any, Callable
+from typing import Any
 from pydantic import BaseModel
 from base_parser import BaseParser
 
@@ -26,7 +26,7 @@ class Parser(BaseParser):
     def not_eof(self) -> bool:
         return self.curr_type() != TokenType.EOF
     
-    def parse_node(self) -> Node:
+    def parse_node(self) -> Node | None:
         if self.is_keyword():
             if self.curr_value() == 'CREATE':
                 return self.parse_create_statement()
@@ -41,7 +41,7 @@ class Parser(BaseParser):
         self.next()
         return None
     
-    def parse_update_statement(self) -> Node:
+    def parse_update_statement(self) -> Node | None:
         update_parser = self.update()
         
         pr = update_parser()
@@ -239,7 +239,7 @@ class Parser(BaseParser):
         return create_stmt
         
 
-    def parse_alter_statement(self) -> Node:
+    def parse_alter_statement(self) -> Node | None:
         alter_parser = self.alter_table()
 
         pr = alter_parser()
