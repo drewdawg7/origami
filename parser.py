@@ -44,7 +44,7 @@ class Parser(BaseParser):
     def parse_update_statement(self) -> Node | None:
         update_parser = self.update()
         
-        pr = update_parser()
+        pr:ParseResult = update_parser()
         if pr.value is None:
             return None
             
@@ -71,15 +71,13 @@ class Parser(BaseParser):
         )
     
         
-    def parse_insert_statement(self) -> Node:
-        insert_parser = self.insert()
-        pr = insert_parser()
+    def parse_insert_statement(self) -> Node | None:
+        pr: ParseResult = self.insert()()
         
         if pr.value is None:
             return None
         
-        # Extract values using labels
-        table_name = pr.value["table_name"]
+        table_name:str = pr.value["table_name"]
         columns = pr.value["columns"]
         all_values = pr.value["values"]
         
@@ -88,10 +86,9 @@ class Parser(BaseParser):
             if len(columns) != len(values):
                 raise Exception("Columns and values have mismatched lengths")
             
-        # Convert raw values to ValueLiteral objects
-        value_literals = []
+        value_literals:list[list[ValueLiteral]] = []
         for val_list in all_values:
-            inner_value_literals = []
+            inner_value_literals: list[ValueLiteral] = []
             for val in val_list:
                 inner_value_literals.append(ValueLiteral(value=val))
             value_literals.append(inner_value_literals)
@@ -107,7 +104,7 @@ class Parser(BaseParser):
                 self.many(self.identifier(), self.delimiter(",")),
                 self.token_type(TokenType.RIGHT_PAREN),
             )
-            parse_result = column_list_parser()
+            parse_result:ParseResult = column_list_parser()
             if parse_result.value is None:
                 return ParseResult
             return ParseResult(value=parse_result.value[1])
@@ -120,7 +117,7 @@ class Parser(BaseParser):
                 self.many(self.literal(), self.delimiter(",")),
                 self.token_type(TokenType.RIGHT_PAREN)
             )
-            parse_result = value_list_parser()
+            parse_result:ParseResult = value_list_parser()
             if parse_result.value is None:
                 return ParseResult()
             
@@ -130,7 +127,7 @@ class Parser(BaseParser):
     def parse_value_lists(self):
         def parser():
             all_values = []
-            first_time = True
+            first_time:bool = True
 
             while True:
                 value_list_result = self.parse_value_list()()
@@ -141,7 +138,7 @@ class Parser(BaseParser):
                     break
                 
                 all_values.append(value_list_result.value)
-                first_time = False
+                first_time: bool = False
                 
                 semicolon_result = self.delimiter(";")()
                 
@@ -161,7 +158,7 @@ class Parser(BaseParser):
     def parse_create_statement(self) -> Node:
         create_parser = self.create_table()
         
-        parse_result = create_parser()
+        parse_result:ParseResult = create_parser()
         if parse_result.value is None:
             raise Exception("Error while parsing create statement.")
         
@@ -170,39 +167,39 @@ class Parser(BaseParser):
         table_name = parse_result.value["table_name"]
         table_elements = parse_result.value["table_elements"]
         
-        table = Table(name=table_name)
-        create_stmt = CreateTable(table=table)
+        table:Table = Table(name=table_name)
+        create_stmt:CreateTable = CreateTable(table=table)
         
         if "conditional_clause" in parse_result.value:
             create_stmt.condition_clauses = parse_result.value["conditional_clause"]
         
         for element in table_elements:
             if "column_name" in element:
-                column_name = element["column_name"]
+                column_name:str = element["column_name"]
                 datatype_token = element["datatype"]
                 size_spec = element.get("size_spec")
                 constraints = element.get("constraints")
                 
-                column_def = self.create_column_def(column_name, datatype_token, size_spec, constraints)
+                column_def:ColumnDef = self.create_column_def(column_name, datatype_token, size_spec, constraints)
                 create_stmt.columns.append(column_def)
                 
             elif "primary_key_constraint" in element:
                 pk_data = element["primary_key_constraint"]
                 if "pk_col" in pk_data:
-                    pk_col = pk_data["pk_col"]["identifier"]
-                    pk_constraint = PrimaryKeyConstraint(column_name=pk_col)
+                    pk_col:str = pk_data["pk_col"]["identifier"]
+                    pk_constraint:PrimaryKeyConstraint = PrimaryKeyConstraint(column_name=pk_col)
                     create_stmt.table_constraints.append(pk_constraint)
                     
             elif "foreign_key_constraint" in element:
-                # Process foreign key
                 fk_data = element["foreign_key_constraint"]
-                if len(fk_data) >= 11:
-                    constraint_name = fk_data[1]
-                    column_name = fk_data[5]
-                    ref_table = fk_data[8]
-                    ref_column = fk_data[10]
-                    
-                    fk_constraint = ForeignKeyConstraint(
+                
+                constraint_name = fk_data.get("constraint_name")
+                column_name = fk_data.get("column_name")
+                ref_table = fk_data.get("referenced_table")
+                ref_column = fk_data.get("referenced_column")
+                
+                if all([constraint_name, column_name, ref_table, ref_column]):
+                    fk_constraint: ForeignKeyConstraint = ForeignKeyConstraint(
                         name=constraint_name,
                         column_name=column_name,
                         referenced_table=ref_table,
@@ -227,11 +224,10 @@ class Parser(BaseParser):
         
         # Create the table and alter statement
         table = Table(name=table_name)
-        alter_stmt = AlterTable(table=table)
+        alter_stmt: AlterTable = AlterTable(table=table)
         
         # Process each operation
         for op in operations:
-            # Check if this is an add_column or drop_column operation
             if "add_column" in op:
                 action = op["add_column"]["action"]
                 column_name = op["add_column"]["column_name"]
@@ -239,25 +235,24 @@ class Parser(BaseParser):
                 size_spec = op["add_column"].get("size_spec")
                 constraints = op["add_column"].get("constraints")
                 
-                column = self.create_column_def(column_name, datatype_token, size_spec, constraints)
+                column:ColumnDef = self.create_column_def(column_name, datatype_token, size_spec, constraints)
             elif "drop_column" in op:
                 action = op["drop_column"]["action"]
                 column_name = op["drop_column"]["column_name"]
-                column = ColumnDef(
+                column: ColumnDef = ColumnDef(
                     name=column_name,
                     datatype=""  
                 )
         
-            # Create the operation and add it to the statement
-            operation = AlterOperation(action=action, column=column)
+            operation: AlterOperation = AlterOperation(action=action, column=column)
             alter_stmt.operations.append(operation)
         
         return alter_stmt
 
 
 
-    def process_constraints(self, constraints):
-        processed_constraints = []
+    def process_constraints(self, constraints) -> list[str]:
+        processed_constraints: list[str] = []
         for constraint in constraints:
             if isinstance(constraint, list):
                 processed_constraints.append(" ".join(constraint))
@@ -265,12 +260,12 @@ class Parser(BaseParser):
                 processed_constraints.append(constraint)
         return processed_constraints
 
-    def create_column_def(self, column_name, datatype_token, size_spec=None, constraints=None):
+    def create_column_def(self, column_name, datatype_token, size_spec=None, constraints=None) -> ColumnDef:
         datatype_str = datatype_token.value
         if size_spec:
             datatype_str += f"({size_spec})"
             
-        column_def = ColumnDef(
+        column_def:ColumnDef = ColumnDef(
             name=column_name,
             datatype=datatype_str
         )

@@ -1,107 +1,108 @@
 from lexer import TokenType, Token
-from typing import Any, Callable
 from pydantic import BaseModel
+from typing import Any, Callable, TypeAlias
+
 
 class ParseResult(BaseModel):
     value: Any = None
     is_optional: bool = False
 
+ParseFunction: TypeAlias = Callable[[], ParseResult]
 
 class BaseParser:
     tokens: list[Token] = []
 
-    def optional(self, parser):
+    def optional(self, parser) -> ParseFunction:
         def parser_fn():
-            result = parser()
+            result: ParseResult = parser()
             if result.value is None:
                 return ParseResult(value=None, is_optional=True)
             return result
         return parser_fn
     
-    def choice(self, *parsers):
-        def parser_fn():
+    def choice(self, *parsers) -> ParseFunction:
+        def parser_fn() -> ParseResult:
             for p in parsers:
-                result = p()
+                result:ParseResult = p()
                 if result.value is not None:
                     return result
             return ParseResult()
         return parser_fn
 
 
-    def label(self, name: str, parser: Callable[[], ParseResult]) -> Callable[[], ParseResult]:
+    def label(self, name: str, parser: ParseFunction) -> ParseFunction:
         def _p():
-            pr = parser()
+            pr:ParseResult = parser()
             if pr.value is None:
                 return pr
             return ParseResult(value={name: pr.value}, is_optional=pr.is_optional)
         return _p
 
-    def keyword(self, expected_word):
-        def parser():
+    def keyword(self, expected_word: str) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_keyword() and self.curr_value() == expected_word:
-                result = self.curr_value()
+                result:str = self.curr_value()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
 
-    def identifier(self):
-        def parser():
+    def identifier(self) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_identifier():
-                result = self.curr_value()
+                result:str = self.curr_value()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
     
-    def literal(self):
-        def parser():
+    def literal(self) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_literal():
-                result = self.curr_value()
+                result:str = self.curr_value()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
     
-    def token_type(self, expected_type):
-        def parser():
+    def token_type(self, expected_type) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.curr_type() == expected_type:
-                result = self.curr_token()
+                result:Token = self.curr_token()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
     
-    def equals(self):
-        def parser():
+    def equals(self) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_equals():
-                result = self.curr_token()
+                result:TokenType = self.curr_token()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
 
-    def delimiter(self, expected_delimiter):
-        def parser():
+    def delimiter(self, expected_delimiter) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_delimiter() and self.curr_value() == expected_delimiter:
-                result = self.curr_token()
+                result:Token = self.curr_token()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
     
-    def datatype(self):
-        def parser():
+    def datatype(self) -> ParseFunction:
+        def parser() -> ParseResult:
             if self.is_datatype():
-                result = self.curr_token()
+                result:Token = self.curr_token()
                 self.next()
                 return ParseResult(value=result)
             return ParseResult()
         return parser
 
-    def sequence(self, *parsers):
-    
-        def parser():
+    def sequence(self, *parsers) -> ParseFunction:
+        def parser() -> ParseResult:
             merged: dict[str, Any] = {}
             ordered: list[Any] = []
             for p in parsers:
@@ -117,8 +118,8 @@ class BaseParser:
             return ParseResult(value=merged if merged else ordered)
         return parser
     
-    def many(self, parser, separator=None):
-        def parser_fn():
+    def many(self, parser:ParseFunction, separator=None) -> ParseFunction:
+        def parser_fn() -> ParseResult:
             results = []
             while True:
                 if len(results) > 0 and separator is not None:
@@ -126,7 +127,7 @@ class BaseParser:
                     if sep_result.value is None:
                         break
 
-                result = parser()
+                result:ParseResult = parser()
                 if result.value is None:
                     break
                     
@@ -251,16 +252,16 @@ class BaseParser:
     def foreign_key(self):
         return self.sequence(
             self.keyword("CONSTRAINT"),
-            self.identifier(),
+            self.label("constraint_name", self.identifier()),
             self.keyword("FOREIGN"),
             self.keyword("KEY"),
             self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
+            self.label("column_name", self.identifier()),
             self.token_type(TokenType.RIGHT_PAREN),
             self.keyword("REFERENCES"),
-            self.identifier(),
+            self.label("referenced_table", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
+            self.label("referenced_column", self.identifier()),
             self.token_type(TokenType.RIGHT_PAREN)
         )
     
