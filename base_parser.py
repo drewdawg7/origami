@@ -259,25 +259,38 @@ class BaseParser:
     def column(self):
         return self.sequence(
             self.label("column_name", self.identifier()),
-                self.label("datatype", self.datatype()),
-                self.optional(
-                    self.label("size_spec", self.sequence(
-                        self.token_type(TokenType.LEFT_PAREN),
-                        self.literal(),
-                        self.token_type(TokenType.RIGHT_PAREN)
-                    ))
-                ),
-                self.optional(self.label("constraints", self.many(self.constraint())))
+            self.label("datatype", self.datatype()),
+            self.optional(
+                self.label("size_spec", self.sequence(
+                    self.token_type(TokenType.LEFT_PAREN),
+                    self.literal(),
+                    self.token_type(TokenType.RIGHT_PAREN)
+                ))
+            ),
+            self.optional(self.label("constraints", self.many(self.constraint())))
         )
     
+    def default(self):
+        return self.sequence(
+            self.keyword("DEFAULT"),
+            self.choice(
+                self.literal(),
+                self.keyword("NULL")
+            )
+        )
 
     def constraint(self):
         return self.choice(
             self.not_null(),
             self.primary_key(),
-            self.auto_increment()
+            self.auto_increment(),
+            self.unique(),
+            self.default()
         )
     
+    def unique(self):
+        return self.keyword("UNIQUE")
+
     def not_null(self):
         return self.sequence(
             self.keyword("NOT"),

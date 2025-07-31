@@ -12,7 +12,7 @@ TEST_SQL = table_operations.read()
 TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
 CREATE TABLE users (
-  id INT,
+  id TINYINT(11) DEFAULT 1 UNIQUE,
   PRIMARY KEY (id),
   CONSTRAINT test FOREIGN KEY (name) REFERENCES otherTable(name)
 );"""

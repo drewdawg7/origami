@@ -22,17 +22,20 @@ KEYWORDS = [
     'NOT',
     'NULL',
     'VALUES',
+    'UNIQUE',
     'IF',
     'EXISTS',
     'AUTO_INCREMENT',
     'CONSTRAINT',
     'FOREIGN',
-    'REFERENCES'
+    'REFERENCES',
+    'DEFAULT'
 ]
 
 DATATYPE = [
     'INT',
-    'VARCHAR'
+    'VARCHAR',
+    'TINYINT',
 ]
 
 TokenType = Enum(
