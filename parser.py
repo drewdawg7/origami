@@ -126,13 +126,12 @@ class Parser(BaseParser):
     def parse_value_lists(self):
         def parser():
             value_list_parser = self.sequence(
-                self.label("first_list", self.parse_value_list()),
-                self.label("additional_lists", self.many(
-                    self.sequence(
-                        self.delimiter(","),
-                        self.label("value_list", self.parse_value_list())
+                self.label("value_lists", 
+                    self.many(
+                        self.parse_value_list(),
+                        self.delimiter(",")
                     )
-                )),
+                ),
                 self.delimiter(";")
             )
             
@@ -140,13 +139,7 @@ class Parser(BaseParser):
             if result.value is None:
                 return ParseResult()
             
-            all_values = [result.value["first_list"]]
-            
-            if "additional_lists" in result.value and result.value["additional_lists"]:
-                for additional in result.value["additional_lists"]:
-                    all_values.append(additional["value_list"])
-            
-            return ParseResult(value=all_values)
+            return ParseResult(value=result.value["value_lists"])
         
         return parser
                 
@@ -159,7 +152,6 @@ class Parser(BaseParser):
         if parse_result.value is None:
             raise Exception("Error while parsing create statement.")
         
-        print(f"FULL PARSE RESULT: {parse_result.value}")
         
         table_name = parse_result.value["table_name"]
         table_elements = parse_result.value["table_elements"]
