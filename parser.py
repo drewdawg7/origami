@@ -176,9 +176,8 @@ class Parser(BaseParser):
                 datatype_token = element["datatype"]
                 
                 size_spec = None
-                if "size_spec" in element and element["size_spec"] is not None:
-                    if "size" in element["size_spec"]:
-                        size_spec = element["size_spec"]["size"]
+                if "size" in element:
+                    size_spec = element["size"]
                 
                 datatype_str = datatype_token.value
                 if size_spec:
@@ -190,14 +189,8 @@ class Parser(BaseParser):
                 )
                 
                 if "constraints" in element and element["constraints"] is not None:
-                    processed_constraints = []
-                    for constraint in element["constraints"]:
-                        if isinstance(constraint, list):
-                            processed_constraints.append(" ".join(constraint))
-                        else:
-                            processed_constraints.append(constraint)
-            
-                    column_def.constraints = processed_constraints
+                    column_def.constraints = element["constraints"]
+
         
                 create_stmt.columns.append(column_def)
                 
@@ -248,8 +241,8 @@ class Parser(BaseParser):
                 datatype_token = op["datatype"]
                 
                 size_spec = None
-                if "size_spec" in op and op["size_spec"] is not None:
-                    size_spec = op["size_spec"].get("size")
+                if "size" in op:
+                    size_spec = op["size"]
                 
                 datatype_str = datatype_token.value
                 if size_spec:
@@ -261,21 +254,14 @@ class Parser(BaseParser):
                 )
                 
                 if "constraints" in op and op["constraints"] is not None:
-                    processed_constraints = []
-                    for constraint in op["constraints"]:
-                        if isinstance(constraint, list):
-                            processed_constraints.append(" ".join(constraint))
-                        else:
-                            processed_constraints.append(constraint)
-                
-                    column.constraints = processed_constraints
-                
+                    column.constraints = op["constraints"]
+            
             elif action == "DROP":
                 column = ColumnDef(
                     name=column_name,
                     datatype=""  
                 )
-            
+        
             operation = AlterOperation(action=action, column=column)
             alter_stmt.operations.append(operation)
         

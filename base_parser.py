@@ -262,24 +262,15 @@ class BaseParser:
             self.label("column_name", self.identifier()),
             self.label("datatype", self.datatype()),
             self.optional(
-                self.label("size_spec", self.sequence(
+                self.sequence(
                     self.token_type(TokenType.LEFT_PAREN),
-                    self.label("size", self.literal()),  # Label the size value
+                    self.label("size", self.literal()),
                     self.token_type(TokenType.RIGHT_PAREN)
-                ))
+                )
             ),
             self.optional(self.label("constraints", self.many(self.constraint())))
         )
     
-    def default(self):
-        return self.sequence(
-            self.keyword("DEFAULT"),
-            self.choice(
-                self.literal(),
-                self.keyword("NULL")
-            )
-        )
-
     def constraint(self):
         return self.choice(
             self.not_null(),
@@ -293,26 +284,52 @@ class BaseParser:
         return self.keyword("UNIQUE")
 
     def not_null(self):
-        return self.sequence(
-            self.keyword("NOT"),
-            self.keyword("NULL")
-        )
-    
+        def parser():
+            result = self.sequence(
+                self.keyword("NOT"),
+                self.keyword("NULL")
+            )()
+            if result.value is None:
+                return ParseResult()
+            return ParseResult(value="NOT NULL")
+        return parser
+
     def primary_key(self, in_table_def=False):
         if not in_table_def:
-            return self.sequence(
-                self.keyword("PRIMARY"),
-                self.keyword("KEY")
-            )
+            def parser():
+                result = self.sequence(
+                    self.keyword("PRIMARY"),
+                    self.keyword("KEY")
+                )()
+                if result.value is None:
+                    return ParseResult()
+                return ParseResult(value="PRIMARY KEY")
+            return parser
+        
         return self.sequence(
             self.keyword("PRIMARY"),
             self.keyword("KEY"),
             self.label("pk_col", self.wrapped_identifier())
-
-            
         )
+
     def auto_increment(self):
         return self.keyword("AUTO_INCREMENT")
+    
+    def default(self):
+        def parser():
+            result = self.sequence(
+                self.keyword("DEFAULT"),
+                self.choice(
+                    self.literal(),
+                    self.keyword("NULL")
+                )
+            )()
+            if result.value is None:
+                return ParseResult()
+            if len(result.value) == 2:
+                return ParseResult(value=f"DEFAULT {result.value[1]}")
+            return ParseResult()
+        return parser
     
     def wrapped_identifier(self):
         return self.sequence(
