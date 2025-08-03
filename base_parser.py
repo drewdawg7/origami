@@ -240,19 +240,20 @@ class BaseParser:
             self.keyword("VALUES"),
             self.label("values", self.parse_value_lists())
         )
+    
     def foreign_key(self):
         return self.sequence(
             self.keyword("CONSTRAINT"),
-            self.identifier(),
+            self.label("constraint_name", self.identifier()),
             self.keyword("FOREIGN"),
             self.keyword("KEY"),
             self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
+            self.label("column_name", self.identifier()),
             self.token_type(TokenType.RIGHT_PAREN),
             self.keyword("REFERENCES"),
-            self.identifier(),
+            self.label("referenced_table", self.identifier()),
             self.token_type(TokenType.LEFT_PAREN),
-            self.identifier(),
+            self.label("referenced_column", self.identifier()),
             self.token_type(TokenType.RIGHT_PAREN)
         )
     
@@ -263,7 +264,7 @@ class BaseParser:
             self.optional(
                 self.label("size_spec", self.sequence(
                     self.token_type(TokenType.LEFT_PAREN),
-                    self.literal(),
+                    self.label("size", self.literal()),  # Label the size value
                     self.token_type(TokenType.RIGHT_PAREN)
                 ))
             ),

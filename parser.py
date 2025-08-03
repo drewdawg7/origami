@@ -62,7 +62,6 @@ class Parser(BaseParser):
             value=ValueLiteral(value=cv)
         )
         
-        # Create and return the update statement
         return Update(
             table_name=tbl,
             columns=[col],
@@ -78,17 +77,14 @@ class Parser(BaseParser):
         if pr.value is None:
             return None
         
-        # Extract values using labels
         table_name = pr.value["table_name"]
         columns = pr.value["columns"]
         all_values = pr.value["values"]
         
-        # Validate that columns and values have matching lengths
         for values in all_values:
             if len(columns) != len(values):
                 raise Exception("Columns and values have mismatched lengths")
             
-        # Convert raw values to ValueLiteral objects
         value_literals = []
         for val_list in all_values:
             inner_value_literals = []
@@ -129,33 +125,31 @@ class Parser(BaseParser):
     
     def parse_value_lists(self):
         def parser():
-            all_values = []
-            first_time = True
-
-            while True:
-                value_list_result = self.parse_value_list()()
-                
-                if value_list_result.value is None:
-                    if first_time:
-                        return ParseResult()
-                    break
-                
-                all_values.append(value_list_result.value)
-                first_time = False
-                
-                semicolon_result = self.delimiter(";")()
-                
-                if semicolon_result.value is not None:
-                    break
-                
-                comma_result = self.delimiter(",")()
-                if comma_result.value is None:
-                    break
+            value_list_parser = self.sequence(
+                self.label("first_list", self.parse_value_list()),
+                self.label("additional_lists", self.many(
+                    self.sequence(
+                        self.delimiter(","),
+                        self.label("value_list", self.parse_value_list())
+                    )
+                )),
+                self.delimiter(";")
+            )
+            
+            result = value_list_parser()
+            if result.value is None:
+                return ParseResult()
+            
+            all_values = [result.value["first_list"]]
+            
+            if "additional_lists" in result.value and result.value["additional_lists"]:
+                for additional in result.value["additional_lists"]:
+                    all_values.append(additional["value_list"])
             
             return ParseResult(value=all_values)
+        
         return parser
                 
-
 
 
     def parse_create_statement(self) -> Node:
@@ -165,7 +159,6 @@ class Parser(BaseParser):
         if parse_result.value is None:
             raise Exception("Error while parsing create statement.")
         
-        # Debug print to see the structure
         print(f"FULL PARSE RESULT: {parse_result.value}")
         
         table_name = parse_result.value["table_name"]
@@ -177,17 +170,15 @@ class Parser(BaseParser):
         if "conditional_clause" in parse_result.value and parse_result.value["conditional_clause"] is not None:
             create_stmt.condition_clauses = parse_result.value["conditional_clause"]
         
-        # Process all table elements
         for element in table_elements:
             if "column_name" in element:
-                # Process column
                 column_name = element["column_name"]
                 datatype_token = element["datatype"]
                 
-                # Initialize size_spec with a default value
                 size_spec = None
                 if "size_spec" in element and element["size_spec"] is not None:
-                    size_spec = element["size_spec"][1] 
+                    if "size" in element["size_spec"]:
+                        size_spec = element["size_spec"]["size"]
                 
                 datatype_str = datatype_token.value
                 if size_spec:
@@ -205,13 +196,12 @@ class Parser(BaseParser):
                             processed_constraints.append(" ".join(constraint))
                         else:
                             processed_constraints.append(constraint)
-                    
+            
                     column_def.constraints = processed_constraints
-                
+        
                 create_stmt.columns.append(column_def)
                 
             elif "primary_key_constraint" in element:
-                # Process primary key
                 pk_data = element["primary_key_constraint"]
                 if "pk_col" in pk_data:
                     pk_col = pk_data["pk_col"]["identifier"]
@@ -219,14 +209,14 @@ class Parser(BaseParser):
                     create_stmt.table_constraints.append(pk_constraint)
                     
             elif "foreign_key_constraint" in element:
-                # Process foreign key
                 fk_data = element["foreign_key_constraint"]
-                if len(fk_data) >= 11:
-                    constraint_name = fk_data[1]
-                    column_name = fk_data[5]
-                    ref_table = fk_data[8]
-                    ref_column = fk_data[10]
-                    
+                
+                constraint_name = fk_data.get("constraint_name")
+                column_name = fk_data.get("column_name")
+                ref_table = fk_data.get("referenced_table")
+                ref_column = fk_data.get("referenced_column")
+                
+                if constraint_name and column_name and ref_table and ref_column:
                     fk_constraint = ForeignKeyConstraint(
                         name=constraint_name,
                         column_name=column_name,
@@ -235,10 +225,8 @@ class Parser(BaseParser):
                     )
                     
                     create_stmt.table_constraints.append(fk_constraint)
-        
-        return create_stmt
-        
 
+        return create_stmt
     def parse_alter_statement(self) -> Node | None:
         alter_parser = self.alter_table()
 
@@ -246,15 +234,12 @@ class Parser(BaseParser):
         if pr.value is None:
             return None
         
-        # Extract labeled values
         table_name = pr.value["table_name"]
         operations = pr.value["operations"]
         
-        # Create the table and alter statement
         table = Table(name=table_name)
         alter_stmt = AlterTable(table=table)
         
-        # Process each operation
         for op in operations:
             action = op["action"]
             column_name = op["column_name"]
@@ -264,7 +249,7 @@ class Parser(BaseParser):
                 
                 size_spec = None
                 if "size_spec" in op and op["size_spec"] is not None:
-                    size_spec = op["size_spec"][1]  # Get the number part
+                    size_spec = op["size_spec"].get("size")
                 
                 datatype_str = datatype_token.value
                 if size_spec:
@@ -282,16 +267,15 @@ class Parser(BaseParser):
                             processed_constraints.append(" ".join(constraint))
                         else:
                             processed_constraints.append(constraint)
-                    
+                
                     column.constraints = processed_constraints
-                    
+                
             elif action == "DROP":
                 column = ColumnDef(
                     name=column_name,
-                    datatype=""  # No datatype for DROP operations
+                    datatype=""  
                 )
             
-            # Create the operation and add it to the statement
             operation = AlterOperation(action=action, column=column)
             alter_stmt.operations.append(operation)
         
