@@ -309,7 +309,9 @@ class BaseParser:
         return self.sequence(
             self.keyword("PRIMARY"),
             self.keyword("KEY"),
-            self.label("pk_col", self.wrapped_identifier())
+            self.token_type(TokenType.LEFT_PAREN),
+            self.label("column_name", self.identifier()),
+            self.token_type(TokenType.RIGHT_PAREN)
         )
 
     def auto_increment(self):

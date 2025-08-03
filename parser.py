@@ -145,71 +145,47 @@ class Parser(BaseParser):
                 
 
 
-    def parse_create_statement(self) -> Node:
-        create_parser = self.create_table()
+    def parse_create_statement(self) -> Node | None:
+        pr = self.create_table()()
+        if pr.value is None:
+            return None
         
-        parse_result = create_parser()
-        if parse_result.value is None:
-            raise Exception("Error while parsing create statement.")
-        
-        
-        table_name = parse_result.value["table_name"]
-        table_elements = parse_result.value["table_elements"]
-        
+        table_name = pr.value["table_name"]
         table = Table(name=table_name)
         create_stmt = CreateTable(table=table)
         
-        if "conditional_clause" in parse_result.value and parse_result.value["conditional_clause"] is not None:
-            create_stmt.condition_clauses = parse_result.value["conditional_clause"]
+        if "conditional_clause" in pr.value:
+            create_stmt.condition_clauses = pr.value["conditional_clause"]
         
-        for element in table_elements:
+        for element in pr.value["table_elements"]:
             if "column_name" in element:
-                column_name = element["column_name"]
-                datatype_token = element["datatype"]
-                
-                size_spec = None
+                datatype = element["datatype"].value
                 if "size" in element:
-                    size_spec = element["size"]
+                    datatype += f"({element['size']})"
                 
-                datatype_str = datatype_token.value
-                if size_spec:
-                    datatype_str += f"({size_spec})"
-                    
-                column_def = ColumnDef(
-                    name=column_name,
-                    datatype=datatype_str
-                )
+                column = ColumnDef(name=element["column_name"], datatype=datatype)
                 
-                if "constraints" in element and element["constraints"] is not None:
-                    column_def.constraints = element["constraints"]
-
-        
-                create_stmt.columns.append(column_def)
+                if "constraints" in element:
+                    column.constraints = element["constraints"]
+                
+                create_stmt.columns.append(column)
                 
             elif "primary_key_constraint" in element:
-                pk_data = element["primary_key_constraint"]
-                if "pk_col" in pk_data:
-                    pk_col = pk_data["pk_col"]["identifier"]
-                    pk_constraint = PrimaryKeyConstraint(column_name=pk_col)
-                    create_stmt.table_constraints.append(pk_constraint)
-                    
+                pk = element["primary_key_constraint"]
+                create_stmt.table_constraints.append(
+                    PrimaryKeyConstraint(column_name=pk["column_name"])
+                )
+                
             elif "foreign_key_constraint" in element:
-                fk_data = element["foreign_key_constraint"]
-                
-                constraint_name = fk_data.get("constraint_name")
-                column_name = fk_data.get("column_name")
-                ref_table = fk_data.get("referenced_table")
-                ref_column = fk_data.get("referenced_column")
-                
-                if constraint_name and column_name and ref_table and ref_column:
-                    fk_constraint = ForeignKeyConstraint(
-                        name=constraint_name,
-                        column_name=column_name,
-                        referenced_table=ref_table,
-                        referenced_column=ref_column
+                fk = element["foreign_key_constraint"]
+                create_stmt.table_constraints.append(
+                    ForeignKeyConstraint(
+                        name=fk["constraint_name"],
+                        column_name=fk["column_name"],
+                        referenced_table=fk["referenced_table"],
+                        referenced_column=fk["referenced_column"]
                     )
-                    
-                    create_stmt.table_constraints.append(fk_constraint)
+                )
 
         return create_stmt
     def parse_alter_statement(self) -> Node | None:
