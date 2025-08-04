@@ -176,9 +176,14 @@ class BaseParser:
             self.label("op", self.equals()),
             self.label("value", self.literal()),
             self.keyword("WHERE"),
-            self.label("cond_col", self.identifier()),
-            self.label("cond_op", self.equals()),
-            self.label("cond_val", self.literal()),
+            self.label("conditions", self.many(
+                self.sequence(
+                    self.label("cond_col", self.identifier()),
+                    self.label("cond_op", self.equals()),
+                    self.label("cond_val", self.literal())
+                ),
+                self.keyword("AND")
+            )),
             self.delimiter(";")
         )
     def alter_table(self):
@@ -242,19 +247,33 @@ class BaseParser:
         )
     
     def foreign_key(self):
-        return self.sequence(
-            self.keyword("CONSTRAINT"),
-            self.label("constraint_name", self.identifier()),
-            self.keyword("FOREIGN"),
-            self.keyword("KEY"),
-            self.token_type(TokenType.LEFT_PAREN),
-            self.label("column_name", self.identifier()),
-            self.token_type(TokenType.RIGHT_PAREN),
-            self.keyword("REFERENCES"),
-            self.label("referenced_table", self.identifier()),
-            self.token_type(TokenType.LEFT_PAREN),
-            self.label("referenced_column", self.identifier()),
-            self.token_type(TokenType.RIGHT_PAREN)
+        return self.choice(
+            self.sequence(
+                self.keyword("CONSTRAINT"),
+                self.label("constraint_name", self.identifier()),
+                self.keyword("FOREIGN"),
+                self.keyword("KEY"),
+                self.token_type(TokenType.LEFT_PAREN),
+                self.label("column_name", self.identifier()),
+                self.token_type(TokenType.RIGHT_PAREN),
+                self.keyword("REFERENCES"),
+                self.label("referenced_table", self.identifier()),
+                self.token_type(TokenType.LEFT_PAREN),
+                self.label("referenced_column", self.identifier()),
+                self.token_type(TokenType.RIGHT_PAREN)
+            ),
+            self.sequence(
+                self.keyword("FOREIGN"),
+                self.keyword("KEY"),
+                self.token_type(TokenType.LEFT_PAREN),
+                self.label("column_name", self.identifier()),
+                self.token_type(TokenType.RIGHT_PAREN),
+                self.keyword("REFERENCES"),
+                self.label("referenced_table", self.identifier()),
+                self.token_type(TokenType.LEFT_PAREN),
+                self.label("referenced_column", self.identifier()),
+                self.token_type(TokenType.RIGHT_PAREN)
+            )
         )
     
     def column(self):
@@ -264,7 +283,7 @@ class BaseParser:
             self.optional(
                 self.sequence(
                     self.token_type(TokenType.LEFT_PAREN),
-                    self.label("size", self.literal()),
+                    self.label("size_params", self.many(self.literal(), self.delimiter(","))),
                     self.token_type(TokenType.RIGHT_PAREN)
                 )
             ),

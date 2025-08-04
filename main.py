@@ -7,8 +7,9 @@ test_scripts_path = './test_scripts/'
 table_operations = open(f'{test_scripts_path}table_operations.sql')
 insert_statements = open(f'{test_scripts_path}insert_statements.sql')
 create_table = open(f'{test_scripts_path}create_table.sql')
+shop_tables = open(f'{test_scripts_path}shop_tables.sql')
 
-TEST_SQL = table_operations.read()
+TEST_SQL = shop_tables.read()
 TEST_SQL2 = insert_statements.read()
 TEST_SQL3 = """
 CREATE TABLE users (
@@ -19,7 +20,7 @@ CREATE TABLE users (
 
 
 def print_tokens():
-  tokens = tokenize(TEST_SQL3)
+  tokens = tokenize(TEST_SQL)
   print(tokens)
 
 
@@ -27,16 +28,16 @@ def print_ast():
 
   prs = Parser()
 
-  val = prs.produce_ast(TEST_SQL3)
-  print(f'Parsing: \n{TEST_SQL3}\n')
+  val = prs.produce_ast(TEST_SQL)
+  print(f'Parsing: \n{TEST_SQL}\n')
   print("===============================")
   print(val)
 
 def print_sql():
   prs = Parser()
-  val = prs.produce_ast(TEST_SQL3)
+  val = prs.produce_ast(TEST_SQL)
   print("ORIGINAL SQL\n")
-  print(TEST_SQL3)
+  print(TEST_SQL)
   print("\nPARSED AST TO SQL\n")
   print("\nFOLDING ------->\n")
   print(val.fold().sql())

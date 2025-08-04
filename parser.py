@@ -38,8 +38,7 @@ class Parser(BaseParser):
                 return self.parse_update_statement()
          
         
-        self.next()
-        return None
+        raise ValueError(f"Unexpected token: {self.curr_token()}")
     
     def parse_update_statement(self) -> Node | None:
         update_parser = self.update()
@@ -52,25 +51,30 @@ class Parser(BaseParser):
         col   = pr.value["col"] 
         op    = pr.value["op"].value
         val   = pr.value["value"]
-        cc    = pr.value["cond_col"]
-        cop   = pr.value["cond_op"].value
-        cv    = pr.value["cond_val"]
         
-        update_condition = UpdateCondition(
-            column=cc,
-            operator=cop,
-            value=ValueLiteral(value=cv)
-        )
+
+        conditions = []
+        for condition in pr.value["conditions"]:
+            cc = condition["cond_col"]
+            cop = condition["cond_op"].value
+            cv = condition["cond_val"]
+        
+            update_condition = UpdateCondition(
+                column=cc,
+                operator=cop,
+                value=ValueLiteral(value=cv)
+            )
+            conditions.append(update_condition)
         
         return Update(
             table_name=tbl,
             columns=[col],
             values=[ValueLiteral(value=val)],
-            conditions=[update_condition]
+            conditions=conditions
         )
     
         
-    def parse_insert_statement(self) -> Node:
+    def parse_insert_statement(self) -> Node | None:
         insert_parser = self.insert()
         pr = insert_parser()
         
@@ -160,8 +164,10 @@ class Parser(BaseParser):
         for element in pr.value["table_elements"]:
             if "column_name" in element:
                 datatype = element["datatype"].value
-                if "size" in element:
-                    datatype += f"({element['size']})"
+                if "size_params" in element:
+                    params = ",".join([param for param in element["size_params"]])
+                    datatype += f"({params})"
+            
                 
                 column = ColumnDef(name=element["column_name"], datatype=datatype)
                 
@@ -178,9 +184,10 @@ class Parser(BaseParser):
                 
             elif "foreign_key_constraint" in element:
                 fk = element["foreign_key_constraint"]
+                constraint_name = fk.get("constraint_name", f"fk_{table_name}_{fk['column_name']}")
                 create_stmt.table_constraints.append(
                     ForeignKeyConstraint(
-                        name=fk["constraint_name"],
+                        name=constraint_name,
                         column_name=fk["column_name"],
                         referenced_table=fk["referenced_table"],
                         referenced_column=fk["referenced_column"]
@@ -188,6 +195,8 @@ class Parser(BaseParser):
                 )
 
         return create_stmt
+    
+    
     def parse_alter_statement(self) -> Node | None:
         alter_parser = self.alter_table()
 
@@ -209,13 +218,13 @@ class Parser(BaseParser):
                 datatype_token = op["datatype"]
                 
                 size_spec = None
-                if "size" in op:
-                    size_spec = op["size"]
-                
                 datatype_str = datatype_token.value
-                if size_spec:
-                    datatype_str += f"({size_spec})"
-                    
+
+                if "size_params" in op:
+                    params = ",".join([param for param in op["size_params"]])
+                    datatype_str += f"({params})"
+                
+            
                 column = ColumnDef(
                     name=column_name,
                     datatype=datatype_str

@@ -3,7 +3,7 @@ from pydantic.dataclasses import dataclass
 
 
 
-
+BOOLEAN_LITERALS = ['TRUE', 'FALSE']
 KEYWORDS = [
     'CREATE',
     'TABLE',
@@ -29,13 +29,18 @@ KEYWORDS = [
     'CONSTRAINT',
     'FOREIGN',
     'REFERENCES',
-    'DEFAULT'
+    'DEFAULT',
+    'AND'
 ]
 
 DATATYPE = [
     'INT',
     'VARCHAR',
     'TINYINT',
+    'DECIMAL',
+    'TIMESTAMP',
+    'BOOLEAN',
+    'TEXT'
 ]
 
 TokenType = Enum(
@@ -80,6 +85,8 @@ def create_token_from_string(string: str)->Token:
         return Token(value=string, type=TokenType.KEYWORD)
     elif (string in DATATYPE):
         return Token(value=string, type=TokenType.DATATYPE)
+    elif string.upper() in BOOLEAN_LITERALS:
+        return Token(value=string, type=TokenType.LITERAL)
     else:
         return Token(value=string, type=TokenType.IDENTIFIER)
 
@@ -115,9 +122,9 @@ def tokenize(sourceCode: str) -> list[Token]:
                 else:
                     raise Exception("Expected closing quote")
             else: 
-                if (isint(src[0])):
+                if (isint(src[0]) or src[0] == "."):
                     num = ""
-                    while (len(src) > 0 and isint(src[0])):
+                    while (len(src) > 0 and (isint(src[0]) or src[0] == ".")):
                         num += src.pop(0)
                     token = Token(value=num, type=TokenType.LITERAL)
                     num = ""
@@ -125,9 +132,9 @@ def tokenize(sourceCode: str) -> list[Token]:
                     string = ""
                     while (len(src) > 0 and (isalpha(src[0]) or src[0] == '_') and src[0] != " "):
                         string += src.pop(0)
-                        token = create_token_from_string(string)
+                    token = create_token_from_string(string)
                 else:
-                    raise Exception("Unexpected non-digit, non-alpha char encountered")
+                    raise Exception(f'Unexpected non-digit, non-alpha char encountered: {src[0]}')
 
         if (token is None):
             token = Token(value=src.pop(0), type=TokenType.UKNOWN)
